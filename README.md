@@ -109,3 +109,6 @@ docs/           README 引用
 
 本项目以 **MIT** 发布，见 [`LICENSE`](LICENSE)。
 随安装包分发的外部程序**另有其许可**：内置的 ffmpeg/ffprobe 是 **GPLv3** 构建，许可见 [`LICENSES/GPL-3.0.txt`](LICENSES/GPL-3.0.txt)，来源与源码获取方式见第三方声明。
+
+## Notice
+> 本项目在 AI 辅助下开发（需求、设计、验收与部分编程由维护者完成）。
