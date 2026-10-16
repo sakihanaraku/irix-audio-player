@@ -1,5 +1,5 @@
 # iRix Audio Player
-基于**Electron** + ** N-API ** + **ffmpeg**。
+基于**Electron** + **N-API** + **ffmpeg**。
 ![架构](docs/architecture.png)
 > 界面：左栏封面 / 信息 / 控件、歌词、WebGL 峰值计与状态格；右栏播放列表 + 文件浏览器。默认窗口 1366×768。
 ![界面](docs/screenshot.png)
@@ -10,7 +10,7 @@
 | **格式** | 由 ffprobe / `ffmpeg -i` 识别 目前已知支持: mp3 m4a flac wav ogg wma |
 | **声卡** | WASAPI 独占 / 共享、 DirectSound 、 MME，四种模式各自枚举设备、协商格式、探测可用性 |
 | **播放** | 进度拖动定位、音量（滚轮 ±5%）、静音（`M`）、循环模式切换（不循环 → 列表循环 → 单曲循环 → 随机） |
-| **播放列表** | 整窗拖入文件 / 多选 / 文件夹（Default: Current user's Music dir）、去重、持久化、拖动排序、`.playlist` 存取 |
+| **播放列表** | 整窗拖入文件 / 多选 / 文件夹、去重、持久化、拖动排序、`.playlist` 存取 |
 | **歌词** | 内嵌歌词 → 同目录 `.lrc` → 手动选择；当前行高亮 + 可收起的校准栏 |
 | **均衡器** | 8 段（20Hz–19kHz，±12dB）+ 前级，实时生效，8 个预设，`.eq`格式存取配置 |
 | **外观** | 10 个预设主题色 + 取色器、浅色/深色主题切换、自定义标题栏 |
@@ -64,8 +64,6 @@ npm start
 ```powershell
 npm run dist:portable     # 单文件 exe（自解压到 %TEMP% 再启动）
 npm run dist:setup        # NSIS 安装包（可自选目录、按用户安装、不需管理员）
-npm run docker:linux      # 构建 Linux 包（AppImage / deb / tar.gz / pacman）
-npm run dist:linux:arch   # Arch 的 *.pacman（sudo pacman -U 装）
 ```
 
 打包前记得关掉正在运行的实例（exe 被占用会写不进去）。
@@ -89,7 +87,7 @@ src/main/       主进程：窗口与 IPC 播放会话 播放列表 ffmpeg 转�
 src/preload/    contextBridge 白名单桥（渲染层入口 window.aurora）
 src/renderer/   界面：index.html + styles.css + renderer.js + i18n.js（中/日/英三语）
 native/         N-API 音频引擎（C++17）：WASAPI / DirectSound / MME / ALSA + 四种后端的设备枚举
-scripts/        构建 / 打包 / 图标 / 测试媒体 / 注释剥离 / 推送
+scripts/        构建 / 打包 / 图标 / 测试媒体
 test/           引擎 解码 业务流程 IPC UI 打包等测试
 docs/           README 引用
 ```
