@@ -104,7 +104,6 @@ docs/           README 引用
 
 | 文件 | 内容 |
 | --- | --- |
-| [`VERIFICATION.md`](VERIFICATION.md) | 逐条技术决策与验证记录（遇到「为什么这么做」来这里查） |
 | [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) | 第三方组件与许可（含随包分发的 GPLv3 ffmpeg 说明） |
 
 ## 许可
