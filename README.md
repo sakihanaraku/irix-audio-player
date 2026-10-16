@@ -13,15 +13,15 @@
 | | |
 | --- | --- |
 | **格式** | 由 ffprobe / `ffmpeg -i` 识别 目前已知支持: mp3 m4a flac wav ogg wma |
-| **声卡** | WASAPI 共享 / WASAPI 独占 / DirectSound / MME，四种模式各自枚举设备、协商格式、探测可用性 |
+| **声卡** | WASAPI 独占 / 共享、 DirectSound 、 MME，四种模式各自枚举设备、协商格式、探测可用性 |
 | **播放** | 进度拖动定位、音量（滚轮 ±5%）、静音（`M`）、循环模式切换（不循环 → 列表循环 → 单曲循环 → 随机） |
-| **播放列表** | 整窗拖入文件 / 多选 / 文件夹（Default: Current user's Music dir）、去重、持久化、拖动排序、`.playlist` 保存与打开 |
+| **播放列表** | 整窗拖入文件 / 多选 / 文件夹（Default: Current user's Music dir）、去重、持久化、拖动排序、`.playlist` 存取 |
 | **歌词** | 内嵌歌词 → 同目录 `.lrc` → 手动选择；当前行高亮 + 可收起的校准栏 |
 | **均衡器** | 8 段（20Hz–19kHz，±12dB）+ 前级，实时生效，8 个预设，`.eq`格式存取配置 |
 | **外观** | 10 个预设主题色 + 取色器、浅色/深色主题切换、自定义标题栏 |
 | **信息与封面** | 内嵌封面 + 标题/艺术家/专辑/年份/流派/编码/容器/采样率/位深/声道/码率/时长/路径 |
-| **峰值计** | WebGL 两条实心电平条（不可用时改用 2D canvas），刻度标签 -40/-20/-10/-6/-3/0 dBFS、线性幅度映射；数值下限 **-90 dBFS**（＝静音，条宽归零），颜色跟随主题，60FPS(如果可用) |
-| **转换** | 右键 → FLAC / Wave / MP3 / AAC / Vorbis |
+| **峰值计** | WebGL（不可用时改用 2D canvas），刻度标签 -40/-20/-10/-6/-3/0 dBFS、线性幅度映射；数值下限 **-90 dBFS**（＝静音，条宽归零），颜色跟随主题，60FPS(如果可用) |
+| **转换** | 右键选取转换 → FLAC Wave MP3 AAC Vorbis |
 | **播放排行** | 按完播次数排行 |
 ## Getting started
 
@@ -30,7 +30,7 @@
 $env:ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
 npm install
 
-# 2. 编译原生音频引擎（需要 VS Build Tools 的 C++ 工作负载 + Python 3）
+# 2. 编译音频引擎（需要 VS Build Tools 的 C++ 工作负载 + Python 3）
 npm run build:native
 
 # 3. 启动
@@ -38,14 +38,14 @@ npm start
 ```
 
 - 环境：Windows 10/11 x64、Node ≥ 18；
-- **ffmpeg 随包内置**（`vendor/ffmpeg/bin/`，GPLv3 构建，见 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)）；也可在界面里「指定 ffmpeg.exe」、或设环境变量 `AURORA_FFMPEG` 覆盖；要换成最新构建跑 `npm run fetch:ffmpeg`；
+- **ffmpeg 内置**（`vendor/ffmpeg/bin/`，GPLv3 构建，见 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)）；也可在设置里指定 ffmpeg.exe、或设环境变量 `AURORA_FFMPEG` 覆盖；要换成最新构建跑 `npm run fetch:ffmpeg`；
 - 查找顺序：显式设置 → `AURORA_FFMPEG` → `vendor/ffmpeg/bin` → 工作区工具目录 → `PATH` → 常见安装位置。
 
 ## 声卡工作模式
 
 | 模式 | 说明 | 输出 |
 | --- | --- | --- |
-| `wasapi-shared` | 经系统混音器；格式不同时自动带 `AUTOCONVERTPCM` | 跟随设置，默认 48kHz/2ch/f32 |
+| `wasapi-shared` | **非独占**；格式不同时自动带 `AUTOCONVERTPCM` | 跟随设置，默认 48kHz/2ch/f32 |
 | `wasapi-exclusive` | **独占**：不经混音器；依次尝试请求格式 → 设备原生格式 → 最接近格式 | 设备默认优先 |
 | `directsound` | `IDirectSound8` + 通知点分段填充 | 16bit(f32bit转换) PCM |
 | `mme` | WinMM `waveOut`，4 块轮转缓冲 | 16bit PCM |
