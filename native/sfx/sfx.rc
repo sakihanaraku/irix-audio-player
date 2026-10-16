@@ -1,0 +1,44 @@
+
+#include <windows.h>
+
+
+
+
+#include "version.h"
+
+
+#pragma code_page(65001)
+
+1 ICON "icon.ico"
+
+
+1 24 "sfx.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     SFX_VERSION_NUM
+PRODUCTVERSION  SFX_VERSION_NUM
+FILEFLAGSMASK   0x3fL
+FILEFLAGS       0x0L
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404B0"
+        BEGIN
+            VALUE "CompanyName",      "iRix Audio Player"
+            VALUE "FileDescription",  "iRix Audio Player 免安装启动器"
+            VALUE "FileVersion",      SFX_VERSION
+            VALUE "InternalName",     "iRixAudioPlayerPortable"
+            VALUE "LegalCopyright",   "MIT License"
+            VALUE "OriginalFilename", "iRixAudioPlayer-portable.exe"
+            VALUE "ProductName",      "iRix Audio Player"
+            VALUE "ProductVersion",   SFX_VERSION
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 1200
+    END
+END

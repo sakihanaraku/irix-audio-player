@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'none'">
+<title>iRix Audio Player</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="bgLayer" aria-hidden="true"><img id="bgImage" alt=""></div>
+
+
+<header class="titlebar">
+  <div class="tb-drag">
+    <span class="logo" id="appLogo" aria-hidden="true">
+      
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"></path>
+      </svg>
+    </span>
+    <span class="app-name">iRix Audio Player</span>
+  </div>
+  
+  <div class="tb-now" id="tbNow" hidden>
+    <span class="tb-now-inner" id="tbNowInner"><span class="tb-now-state" id="tbNowState"></span><span class="tb-now-sep" id="tbNowSep">：</span><span class="tb-now-text" id="tbNowText"></span></span>
+  </div>
+  <div class="tb-controls">
+    <button class="tb-btn" id="btnRank" title="播放排行榜" aria-label="播放排行榜" data-i18n-title="tip.rank" data-i18n-aria="tip.rank">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19h4V10H4zM10 19h4V5h-4zM16 19h4v-6h-4z"></path>
+      </svg>
+    </button>
+    <button class="tb-btn" id="btnEq" title="均衡器" aria-label="均衡器" data-i18n-title="tip.eq" data-i18n-aria="tip.eq">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 20V10M5 6V4M12 20v-6M12 10V4M19 20v-9M19 7V4"></path>
+        <circle cx="5" cy="8" r="1.9"></circle>
+        <circle cx="12" cy="12" r="1.9"></circle>
+        <circle cx="19" cy="9" r="1.9"></circle>
+      </svg>
+    </button>
+    <button class="tb-btn" id="btnThemeMode" title="切换浅色 / 深色" aria-label="切换浅色 / 深色" data-i18n-title="tip.themeMode" data-i18n-aria="tip.themeMode">
+      <svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4.1"></circle>
+        <path d="M12 2.6v2.2M12 19.2v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.6 12h2.2M19.2 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"></path>
+      </svg>
+      <svg class="ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.5 14.3A8.5 8.5 0 0 1 9.7 3.5a8.5 8.5 0 1 0 10.8 10.8z"></path>
+      </svg>
+    </button>
+    <button class="tb-btn" id="btnSettings" title="设置" data-i18n-title="tip.settings" aria-label="设置">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3.1"></circle>
+        <path d="M19.2 14.8a1.6 1.6 0 0 0 .32 1.77l.06.06a1.94 1.94 0 0 1-2.74 2.74l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-.97 1.47v.17a1.94 1.94 0 0 1-3.88 0v-.09a1.6 1.6 0 0 0-1.04-1.47 1.6 1.6 0 0 0-1.77.32l-.06.06a1.94 1.94 0 0 1-2.74-2.74l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-.97h-.17a1.94 1.94 0 0 1 0-3.88h.09a1.6 1.6 0 0 0 1.47-1.04 1.6 1.6 0 0 0-.32-1.77l-.06-.06A1.94 1.94 0 0 1 7.74 4.3l.06.06a1.6 1.6 0 0 0 1.77.32h.08a1.6 1.6 0 0 0 .97-1.47v-.17a1.94 1.94 0 0 1 3.88 0v.09a1.6 1.6 0 0 0 .97 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a1.94 1.94 0 0 1 2.74 2.74l-.06.06a1.6 1.6 0 0 0-.32 1.77v.08a1.6 1.6 0 0 0 1.47.97h.17a1.94 1.94 0 0 1 0 3.88h-.09a1.6 1.6 0 0 0-1.47.97z"></path>
+      </svg>
+    </button>
+    <button class="tb-btn" id="btnMin" title="最小化" data-i18n-title="tip.min" aria-label="最小化">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+    </button>
+    <button class="tb-btn" id="btnMax" title="最大化" data-i18n-title="tip.max" aria-label="最大化">
+      <svg class="ico-max" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="5.5" y="5.5" width="13" height="13" rx="1.2"></rect>
+      </svg>
+      <svg class="ico-restore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4.5" y="8.5" width="11" height="11" rx="1.2"></rect>
+        <path d="M8.5 8.5V5.7a1.2 1.2 0 0 1 1.2-1.2h8.6a1.2 1.2 0 0 1 1.2 1.2v8.6a1.2 1.2 0 0 1-1.2 1.2h-2.8"></path>
+      </svg>
+    </button>
+    <button class="tb-btn close" id="btnClose" title="关闭" data-i18n-title="tip.close" aria-label="关闭">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round">
+        <line x1="6.5" y1="6.5" x2="17.5" y2="17.5"></line>
+        <line x1="17.5" y1="6.5" x2="6.5" y2="17.5"></line>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<main class="layout">
+  
+  <section class="panel player">
+    
+    <div class="player-main">
+      <div class="now-playing">
+        <div class="cover" id="coverBox">
+          <img id="coverImg" alt="专辑封面" data-i18n-alt="cover.alt" hidden>
+          <span id="coverPlaceholder">♪</span>
+        </div>
+        <div class="np-meta">
+          <div data-i18n="np.idle" class="np-title" id="npTitle">未在播放</div>
+          <div data-i18n="np.hint" class="np-artist" id="npArtist">把音乐文件拖进播放列表即可开始</div>
+          <div class="np-tags" id="npTags"></div>
+        </div>
+      </div>
+
+      <div class="seek">
+        <span class="time" id="timeNow">00:00</span>
+        <div class="seek-bar" id="seekBar" role="slider" aria-label="播放进度" data-i18n-aria="seek.aria" tabindex="0">
+          <div class="seek-buffer" id="seekBuffer"></div>
+          <div class="seek-played" id="seekPlayed"><i></i></div>
+        </div>
+        <span class="time" id="timeTotal">00:00</span>
+      </div>
+
+      <div class="transport">
+        <button class="btn" id="btnPrev" title="上一首" data-i18n-title="tip.prev">⏮</button>
+        <button class="btn primary" id="btnPlay" title="播放 / 暂停" data-i18n-title="tip.play">▶</button>
+        <button class="btn" id="btnStop" title="停止" data-i18n-title="tip.stop">⏹</button>
+        <button class="btn" id="btnNext" title="下一首" data-i18n-title="tip.next">⏭</button>
+        
+        <button class="btn repeat-btn" id="btnRepeat" title="播放方式"
+                data-i18n-title="pl.playMode" aria-label="播放方式" data-i18n-aria="pl.playMode">
+          <svg class="ico-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 2.5l3.5 3.5L17 9.5"></path>
+            <path d="M20.5 6H7a4.5 4.5 0 0 0-4.5 4.5V12"></path>
+            <path d="M7 21.5L3.5 18 7 14.5"></path>
+            <path d="M3.5 18H17a4.5 4.5 0 0 0 4.5-4.5V12"></path>
+          </svg>
+          <svg class="ico-repeat-one" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 2.5l3.5 3.5L17 9.5"></path>
+            <path d="M20.5 6H7a4.5 4.5 0 0 0-4.5 4.5V12"></path>
+            <path d="M7 21.5L3.5 18 7 14.5"></path>
+            <path d="M3.5 18H17a4.5 4.5 0 0 0 4.5-4.5V12"></path>
+            <text x="11.4" y="15.6" font-size="9.2" font-weight="700" fill="currentColor" stroke="none">1</text>
+          </svg>
+          <svg class="ico-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 3.5l3.5 3.5L17 10.5"></path>
+            <path d="M20.5 7h-3.2c-1.5 0-2.9.7-3.8 1.9l-3 4.2A4.8 4.8 0 0 1 6.7 15H3.5"></path>
+            <path d="M17 13.5l3.5 3.5L17 20.5"></path>
+            <path d="M3.5 7h3.2c1.5 0 2.9.7 3.8 1.9l.6.8"></path>
+            <path d="M20.5 17h-3.2c-1.5 0-2.9-.7-3.8-1.9l-.6-.8"></path>
+          </svg>
+        </button>
+
+        
+        <button class="btn side-btn" id="btnLyrics" aria-label="歌词" data-i18n-aria="tip.lyrics">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 5h11M4 9.5h11M4 14h7"></path>
+            <path d="M19 9v8.2a2.3 2.3 0 1 1-2-2.2"></path>
+          </svg>
+        </button>
+        <button class="btn side-btn" id="btnInfo" aria-label="音乐信息" data-i18n-aria="tip.info">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 11v5.5M12 7.6v.2"></path>
+          </svg>
+        </button>
+        <div class="volume">
+          
+          <button class="vol-btn" id="volIcon" type="button"
+                  title="静音 / 取消静音" data-i18n-title="tip.mute"
+                  aria-label="静音 / 取消静音" data-i18n-aria="tip.mute" aria-pressed="false">
+            <svg class="ico-vol-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 9.5h3.2L11.5 6v12L7.2 14.5H4z"></path>
+              <path d="M16 9.8l4.4 4.4M20.4 9.8L16 14.2"></path>
+            </svg>
+            <svg class="ico-vol-low" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 9.5h3.2L11.5 6v12L7.2 14.5H4z"></path>
+              <path d="M15 9.6a3.4 3.4 0 0 1 0 4.8"></path>
+            </svg>
+            <svg class="ico-vol-high" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 9.5h3.2L11.5 6v12L7.2 14.5H4z"></path>
+              <path d="M15 9.6a3.4 3.4 0 0 1 0 4.8"></path>
+              <path d="M17.8 7a6.8 6.8 0 0 1 0 9.9"></path>
+            </svg>
+          </button>
+          <input type="range" id="volume" min="0" max="100" value="80" title="音量" data-i18n-title="tip.volume">
+          <span class="vol-num" id="volNum">80</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="err" id="errBox" hidden></div>
+
+    
+    <div class="side-panel">
+      <div class="meta-panel" id="metaPanel">
+        <div class="meta-head">
+          <span data-i18n="meta.title">音乐信息</span>
+          <span class="meta-path" id="metaPath" title=""></span>
+        </div>
+        <div class="meta-grid" id="metaGrid">
+          <div data-i18n="meta.empty" class="meta-empty">尚未选择曲目</div>
+        </div>
+      </div>
+
+      <div class="meta-panel lyrics-panel" id="lyricsPanel" hidden>
+        <div class="meta-head">
+          <span data-i18n="lyrics.title">歌词</span>
+          <span class="meta-path" id="lyricsSource" title=""></span>
+        </div>
+        
+        <div class="lyrics-stage">
+          <div class="lyrics-body" id="lyricsBody">
+            <div class="meta-empty" data-i18n="lyrics.empty">这首歌没有找到歌词</div>
+          </div>
+          <button class="lyrics-bar-toggle" id="btnLyricsBar" aria-expanded="false"
+                  aria-controls="lyricsOffset" aria-label="显示 / 隐藏歌词校准栏">
+            
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6.5 14.5L12 9l5.5 5.5"></path>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="lyrics-offset" id="lyricsOffset">
+          <button class="btn mini ghost lyr-off" data-step="-1000" data-i18n="lyrics.offset.minus1s">-1s</button>
+          <button class="btn mini ghost lyr-off" data-step="-500" data-i18n="lyrics.offset.minus500">-500ms</button>
+          <button class="btn mini ghost lyr-off" data-step="-300" data-i18n="lyrics.offset.minusBig">&lt;&lt;</button>
+          <button class="btn mini ghost lyr-off" data-step="-100" data-i18n="lyrics.offset.minusNudge">&lt;</button>
+          <span class="lyr-off-val" id="lyricsOffsetVal">+0.0 s</span>
+          <button class="btn mini ghost lyr-off" data-step="100" data-i18n="lyrics.offset.plusNudge">&gt;</button>
+          <button class="btn mini ghost lyr-off" data-step="300" data-i18n="lyrics.offset.plusBig">&gt;&gt;</button>
+          <button class="btn mini ghost lyr-off" data-step="500" data-i18n="lyrics.offset.plus500">+500ms</button>
+          <button class="btn mini ghost lyr-off" data-step="1000" data-i18n="lyrics.offset.plus1s">+1s</button>
+          <button class="btn mini ghost" id="lyricsOffsetReset" data-i18n="lyrics.offsetReset">⟲</button>
+          <button class="btn mini ghost" id="btnLyricsEdit" data-i18n="lyrics.editBtn">编辑</button>
+        </div>
+      </div>
+    </div>
+
+    
+    <div class="peak-panel" id="peakPanel">
+      <canvas id="peakCanvas" width="480" height="96"></canvas>
+      <div class="peak-scale" id="peakScale"></div>
+      <div data-i18n="msg.webglFallback" class="peak-fallback" id="peakFallback" hidden>WebGL 不可用</div>
+    </div>
+
+    
+    <div class="stats" id="stats">
+      <div class="stat"><span data-i18n="stat.buffer">缓冲</span><b id="statBuffer">0 ms</b></div>
+      <div class="stat"><span data-i18n="stat.format">输出</span><b id="statFormat">-</b></div>
+      <div class="stat"><span data-i18n="stat.underrun">欠载</span><b id="statUnderrun">0</b></div>
+      <div class="stat"><span data-i18n="stat.status">状态</span><b id="statStatus">空闲</b></div>
+    </div>
+  </section>
+
+  
+  <section class="right-col" id="rightCol">
+  <section class="panel playlist" id="playlistPanel">
+    <div class="pl-head">
+      <h2><span data-i18n="pl.title">播放列表</span> <span class="count" id="plCount">0</span></h2>
+      <div class="pl-actions">
+        <button data-i18n="pl.add" class="btn mini" id="btnAdd" title="添加音乐文件" data-i18n-title="pl.add.tip">＋ 添加</button>
+        <button data-i18n="pl.open" class="btn mini ghost" id="btnOpenList" title="打开 .playlist 播放列表文件（Ctrl+Shift+O）" data-i18n-title="pl.open.tip">打开</button>
+        <button data-i18n="pl.save" class="btn mini ghost" id="btnSaveList" title="另存为 .playlist 播放列表文件" data-i18n-title="pl.save.tip">保存</button>
+        <button data-i18n="pl.clear" class="btn mini ghost" id="btnClear">清空</button>
+      </div>
+    </div>
+    <div class="pl-body" id="plBody">
+      <div class="empty" id="plEmpty">
+        <div class="empty-icon">⤓</div>
+        <div data-i18n="pl.empty">从下面的文件浏览器把音乐拖到这里，或点「＋ 添加」</div>
+        <div data-i18n="pl.emptySub" class="empty-sub">也可以在这里拖动行来调整顺序（拖到列表任意位置插入）</div>
+      </div>
+      <ul class="pl-list" id="plList"></ul>
+    </div>
+  </section>
+
+  
+  <div class="splitter" id="rightSplitter" role="separator" aria-orientation="horizontal" tabindex="0"
+       aria-label="调整右栏上下高度">
+    <span class="splitter-grip"></span>
+  </div>
+
+  
+  <section class="panel browser" id="browserPanel">
+    <div class="pl-head">
+      <h2><span data-i18n="browser.title">文件</span> <span class="count" id="browserCount">0</span></h2>
+      <div class="pl-actions">
+        <button class="btn mini ghost" id="btnBrowseUp" data-i18n="browser.up">↑ 上级</button>
+        <button class="btn mini ghost" id="btnBrowseRefresh" data-i18n="browser.refresh">刷新</button>
+        <button class="btn mini" id="btnBrowseAdd" data-i18n="browser.addAll">全部添加</button>
+      </div>
+    </div>
+    <div class="br-pathwrap">
+      <div class="br-path" id="browserPath" role="textbox" tabindex="0"
+           title="点击可直接输入路径并回车跳转" data-i18n-title="path.tip"></div>
+      <input type="text" id="browserPathInput" class="br-path-input" hidden spellcheck="false"
+             autocomplete="off" placeholder="输入路径后回车跳转" data-i18n-placeholder="path.placeholder">
+    </div>
+    <ul class="br-list" id="browserList"></ul>
+    
+    <div class="br-hint" id="browserHint"></div>
+  </section>
+  </section>
+</main>
+
+
+<footer class="statusbar">
+  <span class="sb-item" id="statusDevice"><i class="dot"></i data-i18n="sb.device.none">未打开声卡</span>
+  <span class="sb-item ok" id="statusWine" hidden><i class="dot"></i><span id="wineText"></span></span>
+  <span class="sb-grow"></span>
+  <span class="sb-item muted" id="scanHint"></span>
+</footer>
+
+
+<div class="modal-mask" id="eqModal" hidden>
+  <div class="modal eq-modal" role="dialog" aria-modal="true" aria-label="均衡器">
+    <div class="modal-head">
+      <h2 data-i18n="eq.title">均衡器（8 段 · 20Hz–19kHz）</h2>
+      <div class="modal-head-right">
+        <label class="check inline"><input type="checkbox" id="chkEqEnabled"><span data-i18n="eq.enabled">启用</span></label>
+        <button class="tb-btn" id="btnCloseEq" title="关闭" aria-label="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+        </button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="eq-bands" id="eqBands"></div>
+      <div class="eq-row">
+        <label class="eq-preamp">
+          <span data-i18n="eq.preamp">前级</span>
+          <input type="range" id="eqPreamp" min="-12" max="12" step="0.5" value="0">
+          <b id="eqPreampVal">0 dB</b>
+        </label>
+        <div class="eq-presets" id="eqPresets"></div>
+      </div>
+      <p class="hint" id="eqHint" data-i18n="eq.hint">拖动即时生效（播放中也能调，凭听感边听边改）；可另存为 .eq 文件复用</p>
+    </div>
+    <div class="modal-foot">
+      <span class="eq-status" id="eqStatus"></span>
+      <button class="btn ghost" id="btnEqReset" data-i18n="eq.reset">全部归零</button>
+      <button class="btn" id="btnEqLoad" data-i18n="eq.load">打开 .eq</button>
+      <button class="btn primary" id="btnEqSave" data-i18n="eq.save">保存为 .eq</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-mask" id="rankModal" hidden>
+  <div class="modal rank-modal" role="dialog" aria-modal="true" aria-label="播放排行榜">
+    <div class="modal-head">
+      <h2 data-i18n="rank.title">播放排行榜</h2>
+      <div class="modal-head-right">
+        <span class="rank-summary" id="rankSummary"></span>
+        <button class="btn mini ghost" id="btnRankEdit" data-i18n="rank.edit">编辑</button>
+        <button class="tb-btn" id="btnCloseRank" title="关闭" aria-label="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+        </button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <ul class="rank-list" id="rankList"></ul>
+    </div>
+    
+    <div class="modal-foot rank-edit-foot" id="rankEditFoot" hidden>
+      <span class="rank-edit-tip" id="rankEditTip"></span>
+      <button class="btn ghost" id="btnRankSelectAll" data-i18n="rank.selectAll">全选</button>
+      <button class="btn" id="btnRankRemove" data-i18n="rank.remove">移除选中</button>
+      <button class="btn primary" id="btnRankDone" data-i18n="rank.done">完成</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="ctx-menu" id="ctxMenu" hidden role="menu"></div>
+
+
+<div class="modal-mask" id="convertModal" hidden>
+  <div class="modal convert-modal" role="dialog" aria-modal="true" aria-label="转换">
+    <div class="modal-head">
+      <h2 data-i18n="conv.title">转换</h2>
+      <span class="conv-src" id="convSrc"></span>
+      <button class="tb-btn" id="btnCloseConvert" title="关闭" aria-label="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      
+      <label class="field">
+        <span data-i18n="conv.fileName">文件名</span>
+        <div class="conv-name-row">
+          <input type="text" id="convFileName" class="conv-input" spellcheck="false"
+                 autocomplete="off" data-i18n-title="conv.fileNameTip">
+          <span class="conv-ext" id="convExt">.flac</span>
+        </div>
+      </label>
+      
+      <div class="field">
+        <span data-i18n="conv.format">格式</span>
+        <div class="conv-formats" id="convFormats"></div>
+      </div>
+      
+      <div class="grid2" id="convParams"></div>
+      <p class="hint" id="convDirHint"></p>
+      
+      <div class="conv-progress" id="convProgress" hidden>
+        <div class="conv-bar"><i id="convBar"></i></div>
+        <span class="conv-percent" id="convPercent">0%</span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="btnConvertCancel" data-i18n="conv.cancel">取消</button>
+      <button class="btn primary" id="btnConvertStart" data-i18n="conv.start">开始转换</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-mask" id="propsModal" hidden>
+  <div class="modal props-modal" role="dialog" aria-modal="true" aria-label="属性">
+    <div class="modal-head">
+      <h2 data-i18n="props.title">属性</h2>
+      <button class="tb-btn" id="btnCloseProps" aria-label="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="meta-grid" id="propsGrid"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="btnLyricsPick" data-i18n="lyrics.pick">选择歌词文件</button>
+      <button class="btn ghost" id="btnLyricsForget" data-i18n="lyrics.forget">清除手动指定</button>
+      <button class="btn" id="btnPropsReveal" data-i18n="props.open">在文件夹中显示</button>
+      <button class="btn primary" id="btnPropsClose" data-i18n="conv.close">关闭</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-mask" id="lyricsEditModal" hidden>
+  <div class="modal lyrics-edit-modal" role="dialog" aria-modal="true" aria-label="歌词编辑">
+    <div class="modal-head">
+      <h2 data-i18n="lyricsEdit.title">歌词编辑</h2>
+      <span class="meta-path" id="lyricsEditPath"></span>
+      <button class="tb-btn" id="btnCloseLyricsEdit" aria-label="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <textarea class="lyrics-edit-text" id="lyricsEditText" spellcheck="false"
+                data-i18n-placeholder="lyricsEdit.placeholder"></textarea>
+      <div class="lyrics-edit-hint" id="lyricsEditHint" data-i18n="lyricsEdit.hint"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="btnLyricsRedo" data-i18n="lyricsEdit.redo">向前恢复</button>
+      <button class="btn ghost" id="btnLyricsUndo" data-i18n="lyricsEdit.undo">向后恢复</button>
+      <button class="btn primary" id="btnLyricsSave" data-i18n="lyricsEdit.save">应用并保存</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+
+
+<div class="modal-mask" id="settingsModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-label="设置">
+    <div class="modal-head">
+      <h2 data-i18n="set.title">设置</h2>
+      <label class="lang-pick" title="Language / 言語 / 语言">
+        <span aria-hidden="true">🌐</span>
+        <select id="selLanguage">
+          <option value="auto" data-i18n="lang.auto">跟随系统</option>
+          <option value="zh">简体中文</option>
+          <option value="ja">日本語</option>
+          <option value="en">English</option>
+        </select>
+      </label>
+      <button class="tb-btn" id="btnCloseSettings" aria-label="关闭设置">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round">
+          <line x1="6.5" y1="6.5" x2="17.5" y2="17.5"></line>
+          <line x1="17.5" y1="6.5" x2="6.5" y2="17.5"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <h3 data-i18n="set.audioMode">声卡工作模式</h3>
+      <div class="grid2">
+        <label class="field">
+          <span data-i18n="set.mode">工作模式</span>
+          <select id="selBackend"></select>
+        </label>
+        <label class="field">
+          <span data-i18n="set.device">输出设备</span>
+          <div class="row">
+            <select id="selDevice"></select>
+            <button class="btn mini" id="btnRefreshDevices" title="刷新设备列表" data-i18n-title="set.tip.refresh">⟳</button>
+          </div>
+        </label>
+      </div>
+      <p class="hint" id="backendHint"></p>
+
+      <h3 data-i18n="set.format">输出格式</h3>
+      <div class="grid2">
+        <label class="field">
+          <span data-i18n="set.rate">采样率</span>
+          <select id="selRate"></select>
+        </label>
+        <label class="field">
+          <span data-i18n="set.bits">位深</span>
+          <select id="selBits">
+            <option value="32">32 bit float</option>
+            <option value="24">24 bit</option>
+            <option value="16">16 bit</option>
+          </select>
+        </label>
+        <label class="field">
+          <span data-i18n="set.channels">声道</span>
+          <select id="selChannels">
+            <option data-i18n="set.channels.stereo" value="2">立体声 (2)</option>
+            <option data-i18n="set.channels.mono" value="1">单声道 (1)</option>
+          </select>
+        </label>
+        <label class="field">
+          <span data-i18n="set.period">独占周期</span>
+          <select id="selPeriod">
+            <option value="3">3 ms</option>
+            <option value="5">5 ms</option>
+            <option value="10" selected>10 ms</option>
+            <option value="20">20 ms</option>
+            <option value="50">50 ms</option>
+          </select>
+        </label>
+        <label class="field">
+          <span data-i18n="set.buffer">设备缓冲</span>
+          <select id="selBuffer">
+            <option value="50">50 ms</option>
+            <option value="100" selected>100 ms</option>
+            <option value="200">200 ms</option>
+            <option value="500">500 ms</option>
+          </select>
+        </label>
+        <label class="field">
+          <span data-i18n="set.ring">引擎缓冲</span>
+          <select id="selRing">
+            <option value="150">150 ms</option>
+            <option value="300" selected>300 ms</option>
+            <option value="800">800 ms</option>
+            <option value="2000">2000 ms</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="check">
+        <input type="checkbox" id="chkFallback" checked>
+        <span data-i18n="set.fallback">独占格式回退（设备不支持所选格式时用最接近的格式）</span>
+      </label>
+
+      <p class="hint" id="deviceHint"></p>
+
+      
+      <div class="audio-actions">
+        <button data-i18n="set.probe" class="btn ghost" id="btnProbe">探测能力</button>
+        <button data-i18n="set.release" class="btn ghost" id="btnRelease">释放声卡</button>
+        <button data-i18n="set.apply" class="btn primary" id="btnApply"
+                title="应用设置并重开声卡" data-i18n-title="set.apply.tip">应用</button>
+        <span class="pending-tag" id="audioPending" data-i18n="set.pending" hidden>有未应用的声卡改动</span>
+      </div>
+      <p class="hint" id="probeResult"></p>
+
+      <h3 data-i18n="set.appearance">外观</h3>
+      <div class="theme-row">
+        <div class="swatches" id="themeSwatches"></div>
+        <label class="theme-custom" title="自定义主题色">
+          <span data-i18n="set.theme.custom">自定义</span>
+          <input type="color" id="themeColor" value="#35d07f">
+        </label>
+        <button data-i18n="set.theme.reset" class="btn mini ghost" id="btnThemeReset">恢复默认</button>
+        <span data-i18n="set.theme.hint" class="hint" id="themeHint">主题色会应用到播放进度、按钮、高亮与状态点</span>
+      </div>
+
+      <h3 data-i18n="set.meter">峰值计</h3>      <div class="peak-offset-row">
+        <label for="peakOffset" data-i18n="set.peakOffset">对齐偏移</label>
+        <input type="range" id="peakOffset" min="-400" max="400" step="10" value="0">
+        <b id="peakOffsetVal">0 ms</b>
+        <button data-i18n="set.peakOffset.reset" class="btn mini ghost" id="btnPeakOffsetReset">归零</button>
+        <span data-i18n="set.peakOffset.hint" class="hint" id="peakOffsetHint">拖动可让峰值计相对声音提前/延后（正值 = 显示更晚）</span>
+      </div>
+
+      <h3 data-i18n="set.background">背景</h3>
+      <div class="bg-row">
+        <label class="field">
+          <span data-i18n="set.bg.source">背景来源</span>
+          <select id="selBgSource">
+            <option value="none" data-i18n="set.bg.none">纯色（无图片）</option>
+            <option value="local" data-i18n="set.bg.local">本地图片…</option>
+            <option value="network" data-i18n="set.bg.network">网络图片 API</option>
+          </select>
+        </label>
+        <div class="bg-actions">
+          <button class="btn mini" id="btnPickBg" data-i18n="set.bg.pick">选择本地图片…</button>
+          <button class="btn mini" id="btnFetchBg" data-i18n="set.bg.refresh">刷新网络图片</button>
+          <button class="btn mini ghost" id="btnClearBg" data-i18n="set.bg.clear">清除背景</button>
+        </div>
+      </div>
+      <div class="grid2">
+        <label class="field">
+          <span data-i18n="set.bg.api">图片 API 地址</span>
+          <div class="row">
+            <input type="text" id="inpBgApi" placeholder="https://picsum.photos/1920/1080" spellcheck="false">
+          </div>
+        </label>
+        <label class="field">
+          <span data-i18n="set.bg.opacity">背景不透明度</span>
+          <div class="row">
+            <input type="range" id="bgOpacity" min="0" max="100" step="5" value="70">
+            <b id="bgOpacityVal">70%</b>
+          </div>
+        </label>
+        <label class="field">
+          <span data-i18n="set.bg.blur">背景模糊</span>
+          <div class="row">
+            <input type="range" id="bgBlur" min="0" max="40" step="2" value="18">
+            <b id="bgBlurVal">18 px</b>
+          </div>
+        </label>
+      </div>
+      <p class="hint" id="bgHint" data-i18n="set.bg.hint">任意图片都可作为背景，界面会自动做半透明 + 模糊处理，保证内容可读</p>
+
+      <h3 data-i18n="set.wine">Wine 兼容</h3>
+      <div class="wine-row">
+        <label class="field">
+          <span data-i18n="set.wine.mode">兼容模式</span>
+          <select id="selWineCompat">
+            <option value="auto" data-i18n="set.wine.auto">自动（检测到 Wine 时启用）</option>
+            <option value="on" data-i18n="set.wine.on">总是启用</option>
+            <option value="off" data-i18n="set.wine.off">关闭</option>
+          </select>
+        </label>
+        <span class="wine-status" id="wineStatus">—</span>
+      </div>
+      <p class="hint" id="wineHint" data-i18n="set.wine.hint">在 Linux / macOS 上用 Wine 运行时打开此模式：自动避开独占模式、放大缓冲、关闭 GPU 玻璃效果</p>
+
+      <h3 data-i18n="set.decoder">解码后端</h3>
+      <div class="ffmpeg" id="ffmpegInfo">检测中…</div>
+      <div class="buttons">
+        <button data-i18n="set.pickFfmpeg" class="btn mini" id="btnPickFfmpeg">指定 ffmpeg.exe</button>
+      </div>
+
+      
+      <h3 data-i18n="about.title">关于</h3>
+      <div class="about">
+        <div class="about-line">
+          <span data-i18n="about.version">版本</span>
+          <b id="aboutVersion">—</b>
+        </div>
+        <div class="about-line">
+          <span data-i18n="about.author">制作者</span>
+          <b>sakihanaraku</b>
+        </div>
+        <div class="about-sub" data-i18n="about.based">本软件基于</div>
+        <div class="about-tags" id="aboutTags"></div>
+        <div class="about-sub" data-i18n="about.licenses">开源协议</div>
+        <ul class="about-lic" id="aboutLicenses"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="app-tip" id="appTip" hidden></div>
+
+<script src="i18n.js"></script>
+<script src="renderer.js"></script>
+</body>
+</html>

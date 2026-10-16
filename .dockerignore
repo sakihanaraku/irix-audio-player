@@ -1,0 +1,14 @@
+# 构建产物与依赖不进构建上下文（镜像会自己 npm ci / 重新编译）
+node_modules
+dist
+.git
+.github
+test/artifacts
+test/media
+*.log
+*.exe
+!vendor/ffmpeg/bin/ffmpeg.exe
+!vendor/ffmpeg/bin/ffprobe.exe
+docs
+*.md
+!docker/*.md

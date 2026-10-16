@@ -1,0 +1,175 @@
+{
+  "name": "irix-audio-player",
+  "productName": "iRix Audio Player",
+  "version": "1.0.1-release",
+  "description": "iRix Audio Player —— Electron + N-API 原生音频引擎 + ffmpeg 解码（Windows: WASAPI/DSound/MME，Linux: ALSA）",
+  "main": "src/main/main.js",
+  "author": "sakihanaraku",
+  "license": "MIT",
+  "private": true,
+  "//homepage": "electron-builder 的 deb / pacman 目标（走 FPM）必须有 homepage，否则报 'Please specify project homepage'。想换成你自己的地址就改这一行。",
+  "homepage": "https://github.com/sakihanaraku/irix-audio-player",
+  "scripts": {
+    "start": "node scripts/launch.mjs",
+    "selftest": "node scripts/selftest.mjs",
+    "build:native": "node scripts/build-native.mjs",
+    "rebuild:native": "node scripts/build-native.mjs --clean",
+    "build:native:electron": "node scripts/build-native.mjs --clean --electron",
+    "fetch:ffmpeg": "node scripts/fetch-ffmpeg.mjs",
+    "test:media": "node scripts/make-test-media.mjs",
+    "test:engine": "node test/engine.test.mjs --seconds 1.0",
+    "test:decode": "node test/decode.test.mjs --seconds 1.0",
+    "test:app": "node test/app.test.mjs",
+    "test:ipc": "node test/main-smoke.mjs",
+    "test:packaged": "node test/packaged.test.mjs",
+    "test:ui": "node test/ui/run-ui-test.mjs",
+    "test": "node scripts/run-all-tests.mjs",
+    "make:icon": "python scripts/make-icon.py",
+    "dist:portable": "node scripts/package.mjs --target dir && node scripts/build-sfx.mjs",
+    "dist:dir": "node scripts/package.mjs --target dir",
+    "dist:nsis": "node scripts/package.mjs --target nsis",
+    "dist:sfx": "node scripts/build-sfx.mjs",
+    "dist:linux": "node scripts/package-linux.mjs",
+    "dist:linux:dir": "node scripts/package-linux.mjs --target dir",
+    "make:icons": "python scripts/make-icon.py && python scripts/make-linux-icons.py",
+    "dist:setup": "node scripts/package.mjs --target nsis",
+    "docker:linux": "node scripts/docker-build.mjs linux",
+    "docker:linux:dir": "node scripts/docker-build.mjs linux --dir-only",
+    "docker:win": "node scripts/docker-build.mjs win",
+    "dist:linux:arch": "node scripts/package-linux.mjs --only pacman"
+  },
+  "devDependencies": {
+    "electron": "^38.2.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.irix.audioplayer",
+    "productName": "iRix Audio Player",
+    "copyright": "Copyright © 2026 iRix Audio Player (MIT)",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "LICENSE",
+      "THIRD-PARTY-NOTICES.md",
+      "LICENSES/**",
+      "native/build/Release/aurora_audio.node",
+      "!**/*.map",
+      "!**/*.pdb"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/ffmpeg/bin",
+        "to": "ffmpeg/bin",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asarUnpack": [
+      "native/build/Release/aurora_audio.node"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "iRixAudioPlayer-${version}-portable.${ext}"
+    },
+    "portable": {
+      "artifactName": "iRixAudioPlayer-${version}-portable.${ext}",
+      "unpackDirName": "iRixAudioPlayer",
+      "requestExecutionLevel": "user"
+    },
+    "nsis": {
+      "artifactName": "iRixAudioPlayer-${version}-setup.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "iRix Audio Player",
+      "uninstallDisplayName": "iRix Audio Player ${version}",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "differentialPackage": false,
+      "runAfterFinish": true,
+      "menuCategory": false
+    },
+    "linux": {
+      "icon": "build/icons",
+      "category": "AudioVideo;Audio;Player",
+      "synopsis": "Music player with N-API audio engine and ffmpeg decoding",
+      "description": "iRix Audio Player — Electron + N-API native audio engine + ffmpeg decoder (ALSA output on Linux)",
+      "maintainer": "sakihanaraku",
+      "desktop": {
+        "entry": {
+          "Name": "iRix Audio Player",
+          "Comment": "Music player (FLAC/WAV/MP3 …)",
+          "Categories": "AudioVideo;Audio;Player;",
+          "Keywords": "music;audio;player;flac;mp3;wav;",
+          "StartupWMClass": "irix-audio-player"
+        }
+      },
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "pacman",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "iRixAudioPlayer-${version}-linux-${arch}.${ext}",
+      "syncDesktopName": true
+    },
+    "pacman": {
+      "artifactName": "iRixAudioPlayer-${version}.pacman",
+      "depends": [
+        "alsa-lib",
+        "gtk3",
+        "nss",
+        "libxss",
+        "libxtst",
+        "xdg-utils",
+        "at-spi2-core",
+        "libcups",
+        "libsecret",
+        "libnotify"
+      ]
+    }
+  },
+  "desktopName": "irix-audio-player.desktop",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sakihanaraku/irix-audio-player.git"
+  }
+}

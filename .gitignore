@@ -1,0 +1,29 @@
+# 依赖与构建产物
+node_modules/
+native/build/
+.tmp-edge-profile/
+selftest-report.json
+dist/
+
+# 第三方二进制（用 npm run fetch:ffmpeg 重新下载；本地已内置一份便于直接运行）
+# vendor/ffmpeg/bin/*.exe
+
+# 测试产物
+test/artifacts/
+test/media/
+dist/
+dist-archive/
+# 本机测试设备选择（各机器不同，不进仓库）
+test/.device.local.json
+# 编译/运行产物（不要提交）
+test/dist/
+__pycache__/
+*.pyc
+native/sfx/*.obj
+native/sfx/*.res
+native/sfx/*.bak
+native/sfx/version.h
+linux-build/*.tgz
+# GitHub token（绝不能提交）
+.gh-token
+

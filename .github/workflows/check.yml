@@ -1,0 +1,49 @@
+name: 检查
+
+
+
+
+
+
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: ${{ matrix.test }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - test/i18n-keys.test.mjs
+          - test/paths-unit.mjs
+          - test/eq-unit.mjs
+          - test/lyrics-unit.mjs
+          - test/playcounts-unit.mjs
+          - test/wine-unit.mjs
+          - test/migrate-unit.mjs
+          - test/version-info.test.mjs
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: 环境信息
+        shell: pwsh
+        run: |
+          node --version
+          if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { ffmpeg -version | Select-Object -First 1 } else { Write-Host '（runner 上没有 ffmpeg，涉及 ffmpeg 的用例会自动跳过）' }
+
+      - name: 运行 ${{ matrix.test }}
+        shell: pwsh
+        run: node '${{ matrix.test }}'
