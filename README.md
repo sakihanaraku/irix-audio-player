@@ -1,7 +1,6 @@
 # iRix Audio Player
 
-Windows 桌面音乐播放器：**Electron 前端** + **自研 N-API 音频引擎** + **ffmpeg 解码**。
-播放链路完全绕开 HTML5 `<audio>`：ffmpeg 解出 32bit 浮点裸 PCM → 引擎环形缓冲 + 格式转换 + 重采样 → WASAPI / DirectSound / WinMM → 声卡。
+基于**Electron** + ** N-API ** + **ffmpeg**。
 
 ![架构](docs/architecture.png)
 
