@@ -188,7 +188,7 @@ AppImage/deb/tar.gz 作为 artifact 上传。
 export WINEPREFIX="$HOME/.wine-irix"; wineboot -i
 
 # 2) 单文件便携版：会自解压到 %TEMP% 再启动
-wine iRixAudioPlayer-1.0.1-release-portable.exe
+wine iRixAudioPlayer-1.0.2-release-portable.exe
 
 # 或者用解压目录版
 wine "dist/win-unpacked/iRix Audio Player.exe"
@@ -454,7 +454,7 @@ dist/win-unpacked/                          # 绿色文件夹版（可直接运�
 - DirectSound / MME 固定输出 16bit PCM（这两个 API 不支持 24/32bit 输出）。
 - 拖入来自压缩包/虚拟文件系统的条目拿不到真实路径，此时请用「＋ 添加」。
 - 某些受限环境（无交互桌面、被沙箱/安全软件拦截）下 Chromium 沙箱初始化会失败、窗口起不来。
-  这时可以试 `iRixAudioPlayer-1.0.1-release-portable.exe --no-sandbox`（启动器会把未知参数透传给应用）；
+  这时可以试 `iRixAudioPlayer-1.0.2-release-portable.exe --no-sandbox`（启动器会把未知参数透传给应用）；
   普通桌面双击运行即可，不需要该参数。同理，调试自测可以跑 `npm run selftest -- --no-sandbox`。
 - **不要以管理员身份运行**：Windows 的 UIPI 会阻止「资源管理器 → 提权进程」的拖放，
   表现就是拖文件进去只出现红色禁止光标、什么都不发生。本项目已给启动器加 `asInvoker` 清单
