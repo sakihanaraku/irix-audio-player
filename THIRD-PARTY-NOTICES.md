@@ -34,15 +34,8 @@ iRix Audio Player 本体以 MIT 发布（见 `LICENSE`）。它**随包分发或
 
 > 如果你想**减小安装包体积 / 免掉这份 GPL 义务**：删掉 `vendor/ffmpeg/bin/`（约 139 MB）并移除 `package.json` 里的 `build.extraResources`，
 > 应用会自动回落到用户机器上的 ffmpeg（设置里可指定，或走 `AURORA_FFMPEG` / `PATH`）。
-## 三、关于 ncm（网易云加密容器）：**本仓库不包含该功能**
 
-本仓库（GitHub 上的 `irix-audio-player`）**不包含**网易云 `.ncm` 容器的解密/转存实现，也没有任何相关代码或参考实现残留：
-`.ncm` 文件在本版本里既不会被扫描入列，也不会被解密。仓库里因此没有需要向任何 ncm 参考实现致谢的内容。
-
-> 做过一份来源审计（见 `VERIFICATION.md` §60、§63）：历史上曾有过一版 ncm 实现，与参考项目 `OpenYYY-desktop`
-> **不存在任何 ≥20 字符的相同代码**（逐行比对结论），属独立实现；该版本现已整体移出本仓库，只保留在维护者本地。
-
-## 四、本项目的自研部分（全部为本仓库原创）
+## 三、本项目的自研部分
 
 - 原生音频引擎（`native/`，N-API + WASAPI / DirectSound / WinMM / ALSA，另有 Wine 降级链）；
 - 渲染层全部界面代码与自绘 SVG 图标（26 条 `<path>` 中仅上面那一条 `music_note` 来自 Material）；
