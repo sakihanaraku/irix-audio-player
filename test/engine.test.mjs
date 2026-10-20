@@ -53,13 +53,17 @@ log('addon:', addonPath);
 log('版本:', JSON.stringify(engine.version()));
 log('后端:', engine.backends().map((b) => `${b.id}${b.implemented ? '' : '(未实现)'}`).join(', '));
 
-const allDevices = engine.listDevices('wasapi-shared');
-log(`\n[设备枚举] WASAPI 渲染设备 ${allDevices.length} 个:`);
+
+const platformBackends = engine.backends().filter((b) => b.implemented).map((b) => b.id);
+const primaryBackend = platformBackends[0] || 'wasapi-shared';
+log(`\n[平台] ${process.platform} · 已实现后端: ${platformBackends.join(', ') || '(无)'}`);
+const allDevices = engine.listDevices(primaryBackend);
+log(`\n[设备枚举] ${primaryBackend} 渲染设备 ${allDevices.length} 个:`);
 for (const d of allDevices) {
   log(`  - ${d.isDefault ? '★' : ' '} ${d.name}  [${d.state}] ${d.formFactor} ` +
       `混音=${d.mixSampleRate}Hz/${d.mixChannels}ch/${d.mixBits}bit${d.mixFloat ? 'f' : ''}`);
 }
-if (allDevices.length === 0) fail('WASAPI 设备枚举为空');
+if (allDevices.length === 0) fail(`${primaryBackend} 设备枚举为空`);
 
 
 
@@ -84,7 +88,7 @@ function resolveDeviceFor(backend) {
 }
 
 {
-  const all = ['wasapi-shared', 'wasapi-exclusive', 'directsound', 'mme'];
+  const all = platformBackends;
   if (devicePick) {
     log(`\n[设备选择] 规则 "${devicePick}"（按后端各自解析 id）`);
     for (const b of all) log(`  · ${b.padEnd(18)} → ${resolveDeviceFor(b).name}`);
@@ -97,15 +101,19 @@ function resolveDeviceFor(backend) {
   }
 }
 
-log('\n[设备枚举] DirectSound:');
-for (const d of engine.listDevices('directsound')) log(`  - ${d.isDefault ? '★' : ' '} ${d.name} (${d.id})`);
-log('[设备枚举] MME:');
-for (const d of engine.listDevices('mme')) log(`  - ${d.isDefault ? '★' : ' '} ${d.name} (id=${d.id})`);
+if (platformBackends.includes('directsound')) {
+  log('\n[设备枚举] DirectSound:');
+  for (const d of engine.listDevices('directsound')) log(`  - ${d.isDefault ? '★' : ' '} ${d.name} (${d.id})`);
+}
+if (platformBackends.includes('mme')) {
+  log('[设备枚举] MME:');
+  for (const d of engine.listDevices('mme')) log(`  - ${d.isDefault ? '★' : ' '} ${d.name} (id=${d.id})`);
+}
 
-const backends = onlyBackend ? [onlyBackend] : ['wasapi-shared', 'wasapi-exclusive', 'directsound', 'mme'];
+const backends = onlyBackend ? [onlyBackend] : platformBackends;
 
 
-if (!onlyBackend || onlyBackend === 'wasapi-exclusive') {
+if (platformBackends.includes('wasapi-exclusive') && (!onlyBackend || onlyBackend === 'wasapi-exclusive')) {
   log('\n[独占模式支持矩阵] (48000Hz/2ch/32bit float 请求)');
   for (const d of allDevices) {
     if (d.state !== 'active') continue;
@@ -225,7 +233,7 @@ log('\n=== 峰值统计（写入侧，与音量/输出格式无关）===');
     pcm[i * 2 + 1] = Math.sin(i * 0.05) * 0.2;   
   }
   const mk = (opts) => new engine.AudioOutput({
-    backend: 'wasapi-shared', deviceId: resolveDeviceFor('wasapi-shared').id, sampleRate: 48000, channels: 2, bits: 32,
+    backend: primaryBackend, deviceId: resolveDeviceFor(primaryBackend).id, sampleRate: 48000, channels: 2, bits: 32,
     isFloat: true, exclusive: false, periodMs: 10, bufferMs: 100, ringMs: 800,
     allowFormatFallback: true, ...opts,
   });
