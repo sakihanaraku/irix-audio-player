@@ -21,6 +21,7 @@ const steps = [
   ['音频转换（FLAC/Wave/MP3/AAC/Vorbis 真实转码 + 参数生效）', 'test/convert-unit.mjs', []],
   ['歌词（LRC 解析 / 元数据与同目录 .lrc 查找顺序 / 当前行换算）', 'test/lyrics-unit.mjs', []],
   ['IPC 契约（真实 main.js + preload.js）', 'test/main-smoke.mjs', []],
+  ['原生任务栏接口（Windows Thumbbar 冒烟）', 'test/taskbar-native-unit.mjs', []],
   ['渲染层 UI（真实 Chromium 渲染）', 'test/ui/run-ui-test.mjs', []],
 ];
 
