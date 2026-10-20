@@ -6,6 +6,9 @@
 
 
 
+
+
+
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -19,6 +22,9 @@ const targets = [];
 if (fs.existsSync(distDir)) {
   for (const f of fs.readdirSync(distDir).filter((f) => /-portable\.exe$/i.test(f))) {
     targets.push(['单文件便携版', path.join(distDir, f)]);
+  }
+  for (const f of fs.readdirSync(distDir).filter((f) => /-setup\.exe$/i.test(f))) {
+    targets.push(['安装包', path.join(distDir, f)]);
   }
   const green = path.join(distDir, 'win-unpacked', 'iRix Audio Player.exe');
   if (fs.existsSync(green)) targets.push(['绿色版主程序', green]);
@@ -35,11 +41,13 @@ for (const [label, exe] of targets) {
   fs.rmSync(out, { force: true });
   const script = [
     `$v = (Get-Item -LiteralPath '${exe}').VersionInfo`,
-    `@($v.ProductName, $v.FileDescription, $v.OriginalFilename, $v.CompanyName, $v.FileVersion, $v.ProductVersion) -join ([char]1) | Out-File -Encoding utf8 '${out}'`,
+    `$sig = Get-AuthenticodeSignature -LiteralPath '${exe}'`,
+    `@($v.ProductName, $v.FileDescription, $v.OriginalFilename, $v.CompanyName, $v.FileVersion, $v.ProductVersion, $sig.Status, $(if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { '' })) -join ([char]1) | Out-File -Encoding utf8 '${out}'`,
   ].join('; ');
   spawnSync('powershell.exe', ['-NoProfile', '-Command', script], { windowsHide: true });
 
-  const [productName = '', fileDesc = '', origName = '', company = '', fileVer = '', prodVer = ''] =
+  const [productName = '', fileDesc = '', origName = '', company = '', fileVer = '', prodVer = '',
+    sigStatus = '', sigSigner = ''] =
     fs.readFileSync(out, 'utf8').replace(/^\uFEFF/, '').trim().split(SEP);
 
   const nameOk = productName.includes('iRix Audio Player');
@@ -47,11 +55,14 @@ for (const [label, exe] of targets) {
   const stageOnly = /^(alpha|beta|release)$/i.test(prodVer.trim());     
   const verOk = fileVer.trim() !== '' && prodVer.trim() !== '' && !stageOnly &&
     (fileVer.includes(pkgVersion) || prodVer.includes(pkgVersion));
-  const ok = nameOk && !garbled && verOk;
+  
+  const sigOk = sigStatus === 'Valid' || sigStatus === 'NotSigned';
+  const ok = nameOk && !garbled && verOk && sigOk;
   console.log(`  ${ok ? '✓' : '✗'} ${label}: ${productName} | ${fileDesc} | ` +
-    `FileVersion=${fileVer} | ProductVersion=${prodVer} | 期望含 ${pkgVersion}`);
+    `FileVersion=${fileVer} | ProductVersion=${prodVer} | 期望含 ${pkgVersion} | ` +
+    `签名=${sigStatus}${sigSigner ? ' (' + sigSigner + ')' : ''}`);
   if (!ok) failed++;
 }
 fs.rmSync(out, { force: true });
-console.log(`\n=== 版本资源校验: ${targets.length - failed}/${targets.length} 通过 ===`);
+console.log(`\n=== 版本资源 + 签名校验: ${targets.length - failed}/${targets.length} 通过 ===`);
 process.exit(failed ? 1 : 0);
