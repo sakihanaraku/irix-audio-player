@@ -9,10 +9,25 @@ const EVENT_CHANNELS = [
   'engine:changed', 'player:volume', 'window:maximized', 'plays:changed', 'convert:progress',
   'convert:done',
   'menu:add-files', 'menu:toggle', 'menu:prev', 'menu:next',
+  
+  
+  'taskbar:command',
 ];
 
 contextBridge.exposeInMainWorld('aurora', {
   info: () => ipcRenderer.invoke('app:info'),
+  
+  ext: {
+    list: () => ipcRenderer.invoke('ext:list'),
+    install: () => ipcRenderer.invoke('ext:install'),
+    uninstall: (id) => ipcRenderer.invoke('ext:uninstall', { id }),
+    toggle: (id, enabled) => ipcRenderer.invoke('ext:toggle', { id, enabled }),
+  },
+  restart: () => ipcRenderer.invoke('app:restart'),
+  
+  taskbar: {
+    thumbClip: (rect) => ipcRenderer.send('taskbar:thumb-clip', rect),
+  },
 
   
   win: {
