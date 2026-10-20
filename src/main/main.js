@@ -3,6 +3,7 @@
 
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell, nativeImage } = require('electron');
 const path = require('node:path');
+const http = require('node:http');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 
@@ -12,6 +13,8 @@ const lyrics = require('./lyrics');
 const { Playlist } = require('./playlist');
 const I18N = require('../renderer/i18n');
 const { PlayerSession } = require('./player');
+const { Extensions } = require('./extensions');
+const nodeCrypto = require('node:crypto');
 const wine = require('./wine');
 const paths = require('./paths');
 const eq = require('./eq');
@@ -29,6 +32,13 @@ if (wineRuntime.detected) {
   app.commandLine.appendSwitch('no-sandbox');
   app.commandLine.appendSwitch('disable-gpu-sandbox');
   try { app.disableHardwareAcceleration(); } catch {  }
+}
+
+
+
+
+if (process.platform === 'win32') {
+  try { app.setAppUserModelId('com.irix.audioplayer'); } catch {  }
 }
 
 const APP_ROOT = path.resolve(__dirname, '..', '..');
@@ -92,6 +102,40 @@ function migrateLegacyData(destDir) {
 }
 
 
+
+
+
+
+function findLegacySettingsSource(base, target) {
+  const candidates = [];
+  const add = (dir) => { if (dir) candidates.push(dir); };
+  try {
+    
+    add(path.join(base, DATA_DIR_NAME));
+    add(path.join(path.dirname(base), DATA_DIR_NAME));
+    add(path.join(path.dirname(path.dirname(base)), DATA_DIR_NAME));
+    
+    for (const sub of ['Downloads', 'Desktop', 'Documents']) {
+      try { add(path.join(app.getPath('home'), sub, DATA_DIR_NAME)); } catch {  }
+      try { add(path.join(app.getPath('home'), sub, PREVIOUS_DATA_DIR_NAMES[0])); } catch {  }
+    }
+    
+    for (const name of [DATA_DIR_NAME, 'iRix Audio Player', 'irix-audio-player', ...PREVIOUS_DATA_DIR_NAMES]) {
+      try { add(path.join(app.getPath('appData'), name)); } catch {  }
+    }
+  } catch {  }
+  const resolvedTarget = (() => { try { return path.resolve(target).toLowerCase(); } catch { return ''; } })();
+  for (const dir of candidates) {
+    try {
+      if (!dir) continue;
+      if (path.resolve(dir).toLowerCase() === resolvedTarget) continue;   
+      if (fs.existsSync(path.join(dir, 'settings.json'))) return dir;
+    } catch {  }
+  }
+  return null;
+}
+
+
 if (process.env.PORTABLE_EXECUTABLE_DIR) {
   try {
     const base = process.env.PORTABLE_EXECUTABLE_DIR;
@@ -101,7 +145,22 @@ if (process.env.PORTABLE_EXECUTABLE_DIR) {
     const existed = PREVIOUS_DATA_DIR_NAMES
       .map((n) => path.join(base, n))
       .find((p) => fs.existsSync(p));
-    app.setPath('userData', !fs.existsSync(target) && existed ? existed : target);
+    const chosen = !fs.existsSync(target) && existed ? existed : target;
+    
+    if (!fs.existsSync(path.join(chosen, 'settings.json'))) {
+      const legacySettings = findLegacySettingsSource(base, chosen);
+      if (legacySettings) {
+        try {
+          fs.mkdirSync(chosen, { recursive: true });
+          for (const name of ['settings.json', 'playlist.json', 'background-cache.img']) {
+            const from = path.join(legacySettings, name);
+            if (!fs.existsSync(from)) continue;
+            try { fs.copyFileSync(from, path.join(chosen, name)); } catch {  }
+          }
+        } catch {  }
+      }
+    }
+    app.setPath('userData', chosen);
   } catch {  }
 } else {
   
@@ -122,8 +181,12 @@ if (process.env.PORTABLE_EXECUTABLE_DIR) {
   } catch {  }
 }
 
+
+
+const DEFAULT_BACKEND = process.platform === 'linux' ? 'alsa' : 'wasapi-shared';
+
 const DEFAULT_SETTINGS = {
-  backend: 'wasapi-shared',      
+  backend: DEFAULT_BACKEND,      
   deviceId: '',                  
   sampleRate: 48000,             
   channels: 2,
@@ -159,6 +222,75 @@ let mainWindow = null;
 let settings = { ...DEFAULT_SETTINGS };
 let playlist = null;
 let player = null;
+let extensions = null;
+
+
+function getExtensions() {
+  if (!extensions) {
+    extensions = new Extensions({
+      dir: path.join(app.getPath('userData'), 'extensions'),
+      getEnabled: () => (Array.isArray(settings.enabledExtensions) ? settings.enabledExtensions : []),
+      saveEnabled: (ids) => { settings.enabledExtensions = ids; return saveSettings(); },
+    });
+  }
+  return extensions;
+}
+
+
+
+
+
+async function resolvePlayablePath(filePath) {
+  let handler = null;
+  try { handler = getExtensions().findHandler(path.basename(filePath)); } catch { handler = null; }
+  if (!handler || typeof handler.decode !== "function") return filePath;
+  const st = await fsp.stat(filePath);
+  const cacheDir = path.join(app.getPath('userData'), 'decode-cache');
+  const key = nodeCrypto.createHash("sha1")
+    .update(filePath).update(String(st.size)).update(String(st.mtimeMs)).digest("hex").slice(0, 16);
+  const cached = path.join(cacheDir, key);
+  const hit = ["flac", "mp3", "wav", "ogg", "m4a", "aac", "opus"].map((e) => cached + "." + e).find((p) => fs.existsSync(p));
+  if (hit) {
+    
+    let meta = null;
+    try { meta = JSON.parse(await fsp.readFile(cached + ".meta.json", "utf8")); } catch { meta = null; }
+    
+    if (!fs.existsSync(cached + ".cover.img")) {
+      try {
+        const raw = await fsp.readFile(filePath);
+        const r = handler.decode(raw, { name: path.basename(filePath) });
+        if (r && r.data && !r.passthrough) {
+          if (r.cover && r.cover.length > 64) await fsp.writeFile(cached + ".cover.img", r.cover);
+          if (r.meta) {
+            await fsp.writeFile(cached + ".meta.json", JSON.stringify(r.meta), "utf8");
+            meta = r.meta;
+          }
+        }
+      } catch {  }
+    }
+    return meta ? { path: hit, meta } : hit;
+  }
+  let r;
+  try {
+    const raw = await fsp.readFile(filePath);
+    r = handler.decode(raw, { name: path.basename(filePath) });
+  } catch (err) {
+    throw new Error("扩展解密失败：" + err.message);
+  }
+  if (!r || !r.data || r.passthrough) return filePath;
+  await fsp.mkdir(cacheDir, { recursive: true });
+  const out = cached + "." + (r.ext || "bin");
+  await fsp.writeFile(out, r.data);
+  
+  try {
+    if (r.cover && r.cover.length > 64) await fsp.writeFile(cached + ".cover.img", r.cover);
+  } catch {  }
+  
+  try {
+    if (r.meta) await fsp.writeFile(cached + ".meta.json", JSON.stringify(r.meta), "utf8");
+  } catch {  }
+  return r.meta ? { path: out, meta: r.meta } : out;
+}
 let tools = { ffmpeg: null, ffprobe: null };
 
 let playingTrackId = null;
@@ -286,6 +418,68 @@ function wineInfoForUi() {
   };
 }
 
+
+
+
+
+
+const BACKUPS_DIR_NAME = 'backups';
+const BACKUP_KEEP = 12;
+
+function backupsDir() {
+  return path.join(app.getPath('userData'), BACKUPS_DIR_NAME);
+}
+
+
+function backupFileBeforeWrite(file) {
+  try {
+    if (!fs.existsSync(file)) return;
+    const st = fs.statSync(file);
+    if (!st.size) return;
+    const dir = backupsDir();
+    fs.mkdirSync(dir, { recursive: true });
+    const base = path.basename(file).replace(/\.(json|img)$/i, '');
+    const ext = path.extname(file) || '.json';
+    
+    const recent = fs.readdirSync(dir).filter((n) => n.startsWith(base + '-')).sort();
+    if (recent.length) {
+      const last = path.join(dir, recent[recent.length - 1]);
+      try {
+        if (fs.statSync(last).size === st.size && (Date.now() - fs.statSync(last).mtimeMs) < 5 * 60 * 1000) return;
+      } catch {  }
+    }
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    fs.copyFileSync(file, path.join(dir, base + '-' + stamp + ext));
+    
+    const all = fs.readdirSync(dir).filter((n) => n.startsWith(base + '-')).sort();
+    for (const old of all.slice(0, Math.max(0, all.length - BACKUP_KEEP))) {
+      try { fs.rmSync(path.join(dir, old), { force: true }); } catch {  }
+    }
+  } catch {  }
+}
+
+
+function restoreFromBackup(file) {
+  try {
+    const dir = backupsDir();
+    if (!fs.existsSync(dir)) return false;
+    const base = path.basename(file).replace(/\.(json|img)$/i, '');
+    const ext = path.extname(file) || '.json';
+    const cands = fs.readdirSync(dir).filter((n) => n.startsWith(base + '-') && n.endsWith(ext)).sort().reverse();
+    for (const name of cands) {
+      const src = path.join(dir, name);
+      try {
+        const raw = fs.readFileSync(src, 'utf8');
+        if (!raw.trim()) continue;
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.copyFileSync(src, file);      
+        return JSON.parse(raw);          
+      } catch {  }
+    }
+  } catch {  }
+  return false;
+}
+
 function settingsFile() {
   return path.join(app.getPath('userData'), 'settings.json');
 }
@@ -308,14 +502,41 @@ function sanitizeFileName(name) {
 async function loadSettings() {
   try {
     const raw = await fsp.readFile(settingsFile(), 'utf8');
-    settings = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-  } catch {  }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('settings 格式不对');
+    settings = { ...DEFAULT_SETTINGS, ...parsed };
+  } catch {
+    
+    const restored = restoreFromBackup(settingsFile());
+    if (restored && typeof restored === 'object' && !Array.isArray(restored)) {
+      settings = { ...DEFAULT_SETTINGS, ...restored };
+      try { await saveSettings(); } catch {  }
+    }
+  }
+  
+  
+  const windowsOnlyBackends = ['wasapi-shared', 'wasapi-exclusive', 'directsound', 'mme'];
+  if (process.platform === 'linux' && windowsOnlyBackends.includes(settings.backend)) {
+    settings.backend = 'alsa';
+    settings.deviceId = '';
+  }
+  if (process.platform === 'win32' && settings.backend === 'alsa') {
+    settings.backend = 'wasapi-shared';
+    settings.deviceId = '';
+  }
   applyWineCompat();
+  
+  try {
+    backupFileBeforeWrite(settingsFile());
+    backupFileBeforeWrite(path.join(app.getPath('userData'), 'playlist.json'));
+    backupFileBeforeWrite(path.join(app.getPath('userData'), 'play-counts.json'));
+  } catch {  }
 }
 
 async function saveSettings() {
   try {
     await fsp.mkdir(path.dirname(settingsFile()), { recursive: true });
+    backupFileBeforeWrite(settingsFile());      
     await fsp.writeFile(settingsFile(), JSON.stringify(settings, null, 2), 'utf8');
   } catch {  }
 }
@@ -340,6 +561,244 @@ function send(channel, payload) {
   }
 }
 
+
+
+app.commandLine.appendSwitch('enable-features', 'MediaSessionService,HardwareMediaKeyHandling');
+
+
+if (process.platform === 'linux') app.commandLine.appendSwitch('enable-transparent-visuals');
+
+
+
+
+
+
+const WINDOW_RADIUS = 12;
+
+
+function roundedShapeRects(width, height) {
+  const r = Math.min(WINDOW_RADIUS, Math.floor(Math.min(width, height) / 2));
+  if (r <= 0) return [{ x: 0, y: 0, width, height }];
+  const rects = [];
+  for (let i = 0; i < r; i++) {
+    const dy = r - i - 0.5;
+    const dx = Math.round(r - Math.sqrt(Math.max(0, r * r - dy * dy)));
+    const w = Math.max(0, width - 2 * dx);
+    rects.push({ x: dx, y: i, width: w, height: 1 });
+    rects.push({ x: dx, y: height - 1 - i, width: w, height: 1 });
+  }
+  rects.push({ x: 0, y: r, width, height: Math.max(0, height - 2 * r) });
+  return rects;
+}
+
+
+function applyWindowShape(win) {
+  if (!win || win.isDestroyed()) return;
+  if (process.platform !== 'linux') return;   
+  if (typeof win.setShape !== 'function') return;
+  try {
+    const [w, h] = win.getSize();
+    if (win.isMaximized() || win.isFullScreen()) {
+      win.setShape([{ x: 0, y: 0, width: w, height: h }]);
+    } else {
+      win.setShape(roundedShapeRects(w, h));
+    }
+  } catch {  }
+}
+
+
+
+
+
+
+
+let rendererServer = null;
+function startRendererServer() {
+  return new Promise((resolve) => {
+    try {
+      const root = path.normalize(path.join(__dirname, '..', 'renderer'));
+      const types = {
+        '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+        '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml',
+        '.json': 'application/json; charset=utf-8', '.woff2': 'font/woff2', '.ico': 'image/x-icon',
+      };
+      const server = http.createServer((req, res) => {
+        try {
+          const u = new URL(req.url, 'http://127.0.0.1');
+          let rel = decodeURIComponent(u.pathname);
+          if (rel === '/' || rel === '') rel = '/index.html';
+          const file = path.normalize(path.join(root, rel));
+          if (!file.startsWith(root + path.sep)) { res.writeHead(403); res.end('forbidden'); return; }
+          const data = fs.readFileSync(file);
+          res.writeHead(200, {
+            'Content-Type': types[path.extname(file).toLowerCase()] || 'application/octet-stream',
+            'Cache-Control': 'no-store',
+          });
+          res.end(data);
+        } catch {
+          try { res.writeHead(404); res.end('not found'); } catch {  }
+        }
+      });
+      server.listen(0, '127.0.0.1', () => {
+        try { rendererServer = server; resolve(server.address().port); } catch { resolve(0); }
+      });
+      server.on('error', () => resolve(0));
+    } catch { resolve(0); }
+  });
+}
+
+
+
+
+
+
+
+
+
+
+
+function taskbarIcon(name) {
+  
+  
+  const p = path.join(__dirname, 'assets', 'taskbar', name + '.png');
+  try {
+    const buf = fs.readFileSync(p);
+    const img = nativeImage.createFromBuffer(buf);
+    debugLog('icon ' + name + ' path=' + p + ' bytes=' + buf.length + ' empty=' + img.isEmpty());
+    if (!img.isEmpty()) return img;
+  } catch (err) { debugLog('icon ' + name + ' 读取失败: ' + err.message); }
+  try {
+    const img = nativeImage.createFromPath(p);     
+    return img.isEmpty() ? nativeImage.createEmpty() : img;
+  } catch { return nativeImage.createEmpty(); }
+}
+
+
+function taskbarIconBitmap(name) {
+  try {
+    const p = path.join(__dirname, 'assets', 'taskbar', name + '.png');
+    const img = nativeImage.createFromBuffer(fs.readFileSync(p));
+    if (img.isEmpty()) return null;
+    const size = img.getSize();
+    const bitmap = img.toBitmap();
+    if (!size || !size.width || !size.height || !bitmap || !bitmap.length) return null;
+    return { width: size.width, height: size.height, bitmap };
+  } catch (err) {
+    debugLog('taskbar bitmap ' + name + ' 读取失败: ' + err.message);
+    return null;
+  }
+}
+
+let taskbarKey = '';
+let taskbarState = 'unknown';   
+
+
+function debugLog(line) {
+  try {
+    const f = path.join(app.getPath('userData'), 'taskbar-debug.log');
+    fs.appendFileSync(f, new Date().toISOString() + '  ' + line + '\n', 'utf8');
+  } catch {  }
+}
+
+
+function taskbarCommand(c) {
+  try {
+    debugLog('thumbar click: ' + c + ' (' + taskbarState + ')');
+    send('taskbar:command', c);
+  } catch {  }
+}
+
+
+function ensureNativeTaskbar() {
+  if (taskbarState === 'native') return true;
+  if (taskbarState === 'fallback' || taskbarState === 'off') return false;
+  if (process.platform !== 'win32' || !mainWindow || mainWindow.isDestroyed()) {
+    taskbarState = 'off';
+    return false;
+  }
+  try {
+    const addon = player && player.engine;
+    if (!addon || typeof addon.taskbarInstall !== 'function' ||
+        typeof addon.taskbarUpdate !== 'function' || typeof addon.taskbarDispose !== 'function') {
+      taskbarState = 'fallback';
+      debugLog('原生任务栏接口不可用（taskbar* 缺失）→ 回退 Electron');
+      return false;
+    }
+    const icons = {
+      prev: taskbarIconBitmap('prev'),
+      play: taskbarIconBitmap('play'),
+      pause: taskbarIconBitmap('pause'),
+      next: taskbarIconBitmap('next'),
+    };
+    if (!icons.prev || !icons.play || !icons.pause || !icons.next) {
+      taskbarState = 'fallback';
+      debugLog('任务栏图标读取失败 → 回退 Electron');
+      return false;
+    }
+    addon.taskbarInstall(mainWindow.getNativeWindowHandle(), icons, (command) => taskbarCommand(command));
+    taskbarState = 'native';
+    debugLog('原生任务栏按钮已安装 ✓');
+    return true;
+  } catch (err) {
+    taskbarState = 'fallback';
+    debugLog('原生任务栏安装失败: ' + err.message + ' → 回退 Electron');
+    return false;
+  }
+}
+
+function updateTaskbarButtons() {
+  if (process.platform !== 'win32' || !mainWindow || mainWindow.isDestroyed()) return;
+  let playing = false;
+  try { playing = player.state().status === 'playing'; } catch {  }
+  const key = playing ? 'playing' : 'paused';
+  if (key === taskbarKey) return;             
+  taskbarKey = key;
+
+  
+  if (ensureNativeTaskbar()) {
+    try {
+      player.engine.taskbarUpdate(playing);
+    } catch (err) {
+      debugLog('原生任务栏 update 失败: ' + err.message);
+    }
+    return;
+  }
+
+  
+  try {
+    mainWindow.setThumbarButtons([
+      { tooltip: '上一首', icon: taskbarIcon('prev'), click: () => taskbarCommand('prev') },
+      { tooltip: playing ? '暂停' : '播放', icon: taskbarIcon(playing ? 'pause' : 'play'), click: () => taskbarCommand(playing ? 'pause' : 'play') },
+      { tooltip: '下一首', icon: taskbarIcon('next'), click: () => taskbarCommand('next') },
+    ]);
+    debugLog('回退 Electron 任务栏实现 playing=' + playing);
+  } catch {  }
+}
+
+
+function disposeTaskbar() {
+  try {
+    if (player && player.engine && typeof player.engine.taskbarDispose === 'function') {
+      player.engine.taskbarDispose();
+    }
+  } catch {  }
+  taskbarState = 'off';
+}
+
+ipcMain.on('taskbar:thumb-clip', (_e, rect) => {
+  if (process.platform !== 'win32' || !mainWindow || mainWindow.isDestroyed()) return;
+  try {
+    const ok = rect && Number.isFinite(rect.width) && Number.isFinite(rect.height) && rect.width > 8 && rect.height > 8;
+    
+    mainWindow.setThumbnailClip(ok ? {
+      x: Math.max(0, Math.round(rect.x)),
+      y: Math.max(0, Math.round(rect.y)),
+      width: Math.max(1, Math.round(rect.width)),
+      height: Math.max(1, Math.round(rect.height)),
+    } : { x: 0, y: 0, width: 0, height: 0 });
+  } catch {  }
+});
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     
@@ -362,7 +821,34 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  
+  applyWindowShape(mainWindow);
+  let shapeTimer = null;
+  const queueShape = () => {
+    clearTimeout(shapeTimer);
+    shapeTimer = setTimeout(() => applyWindowShape(mainWindow), 60);
+  };
+  mainWindow.on('resize', queueShape);
+  mainWindow.on('maximize', queueShape);
+  mainWindow.on('unmaximize', queueShape);
+  mainWindow.on('restore', queueShape);
+  
+  mainWindow.on('closed', () => disposeTaskbar());
+
+  updateTaskbarButtons();
+
+  const indexFile = path.join(__dirname, '..', 'renderer', 'index.html');
+  startRendererServer().then((port) => {
+    if (port) {
+      mainWindow.loadURL('http://127.0.0.1:' + port + '/index.html').catch(() => {
+        try { mainWindow.loadFile(indexFile); } catch {  }
+      });
+      debugLog('renderer 走 http://127.0.0.1:' + port);
+    } else {
+      mainWindow.loadFile(indexFile);
+      debugLog('renderer 退回 file://（http 服务启动失败）');
+    }
+  });
 
   
   
@@ -406,6 +892,32 @@ function registerIpc() {
   ipcMain.on('window:close', () => mainWindow?.close());
   ipcMain.handle('window:is-maximized', () => !!mainWindow?.isMaximized());
 
+  
+
+
+
+
+
+  const silentWavUrl = (() => {
+    try {
+      const file = path.join(app.getPath("userData"), "silent.wav");
+      if (!fs.existsSync(file)) {
+        const rate = 8000, n = rate * 2;           
+        const buf = Buffer.alloc(44 + n);
+        buf.write("RIFF", 0, "latin1"); buf.writeUInt32LE(36 + n, 4);
+        buf.write("WAVE", 8, "latin1"); buf.write("fmt ", 12, "latin1");
+        buf.writeUInt32LE(16, 16); buf.writeUInt16LE(1, 20); buf.writeUInt16LE(1, 22);
+        buf.writeUInt32LE(rate, 24); buf.writeUInt32LE(rate, 28);
+        buf.writeUInt16LE(1, 32); buf.writeUInt16LE(8, 34);
+        buf.write("data", 36, "latin1"); buf.writeUInt32LE(n, 40);
+        buf.fill(128, 44);                         
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, buf);
+      }
+      return require("node:url").pathToFileURL(file).href;
+    } catch { return ""; }
+  })();
+
   ipcMain.handle('app:info', async () => {
     let addonInfo = null;
     try {
@@ -430,6 +942,7 @@ function registerIpc() {
       },
       settings,
       userData: app.getPath('userData'),
+      silentWavUrl,                 
       elevated: isElevatedProcess(),
       bgCooldownMs: 30000,          
       wine: wineInfoForUi(),        
@@ -541,10 +1054,33 @@ function registerIpc() {
     const key = `${file}|${track?.mtime || 0}`;
     if (coverCache.has(key)) return coverCache.get(key);
     let out = { dataUrl: null };
+    
+    
     if (track ? track.hasCover !== false : true) {
       try {
         const cover = await extractCover(file, tools, { maxSize: 512 });
         if (cover) out = { dataUrl: cover.dataUrl, bytes: cover.bytes, mime: cover.mime };
+      } catch {  }
+    }
+    
+    if (!out.dataUrl && track) {
+      try {
+        
+        const src = track.path || track.playPath;
+        if (src && getExtensions().findHandler(path.basename(src))) {
+          await resolvePlayablePath(src);
+        }
+      } catch (err) { debugLog('cover 补 sidecar 失败: ' + err.message); }
+    }
+    if (!out.dataUrl) {
+      try {
+        const side = file.replace(/\.[^.]+$/, "") + ".cover.img";
+        if (fs.existsSync(side)) {
+          const buf = await fsp.readFile(side);
+          const mime = buf[0] === 0xff && buf[1] === 0xd8 ? "image/jpeg"
+            : buf.slice(0, 4).toString("hex") === "89504e47" ? "image/png" : "image/jpeg";
+          out = { dataUrl: "data:" + mime + ";base64," + buf.toString("base64"), bytes: buf.length, mime };
+        }
       } catch {  }
     }
     coverCache.set(key, out);
@@ -558,6 +1094,8 @@ function registerIpc() {
     '.flac', '.wav', '.mp3', '.aac', '.m4a', '.mp4', '.ogg', '.oga', '.opus', '.wma',
     '.aiff', '.aif', '.ape', '.alac', '.mka', '.tak', '.wv', '.dsf', '.dff', '.mid', '.midi',
   ]);
+  
+  try { for (const e of getExtensions().supportedExts()) AUDIO_EXT.add('.' + e); } catch {  }
 
   const defaultBrowseDir = () => {
     try {
@@ -709,7 +1247,8 @@ function registerIpc() {
     const removed = playcounts.removeSongs(data, keys);
     if (removed) {
       try {
-        playcounts.save(playCountsFile(), data);
+        backupFileBeforeWrite(playCountsFile());
+    playcounts.save(playCountsFile(), data);
       } catch (err) {
         console.error('写入播放次数失败:', err.message);
       }
@@ -917,7 +1456,9 @@ function registerIpc() {
     if (!track) throw new Error('播放列表中没有该曲目');
     if (!track.ok) throw new Error(`该文件无法解码: ${track.error || '未知原因'}`);
     playingTrackId = trackId;                  
-    return player.play(track, withBackendChain(settings), { startSeconds: start || 0 });
+    
+    const playablePath = await resolvePlayablePath(track.path);
+    return player.play({ ...track, path: playablePath }, withBackendChain(settings), { startSeconds: start || 0 });
   });
   ipcMain.handle('player:pause', () => player.pause());
   ipcMain.handle('player:resume', () => player.resume());
@@ -946,7 +1487,36 @@ function registerIpc() {
     return player.state();
   });
 
-  ipcMain.handle('probe:file', async (_e, { file }) => probeFile(file, tools));
+  
+  ipcMain.handle('ext:list', () => getExtensions().list());
+  ipcMain.handle('ext:install', async () => {
+    const res = await dialog.showOpenDialog(mainWindow, {
+      title: '安装扩展',
+      properties: ['openFile'],
+      filters: [{ name: 'iRix 扩展包', extensions: ['xtxs', 'zip'] }],
+    });
+    if (res.canceled || !res.filePaths?.[0]) return { ok: false, canceled: true };
+    const manifest = getExtensions().installFromFile(res.filePaths[0]);
+    return { ok: true, manifest, restartRequired: true };
+  });
+  ipcMain.handle('ext:uninstall', (_e, { id }) => {
+    getExtensions().uninstall(id);
+    return { ok: true, restartRequired: true };
+  });
+  ipcMain.handle('ext:toggle', (_e, { id, enabled }) => {
+    getExtensions().setEnabled(id, !!enabled);
+    return { ok: true, restartRequired: true };
+  });
+  ipcMain.handle('app:restart', () => {
+    setTimeout(() => { try { app.relaunch(); } catch {  } app.exit(0); }, 60);
+    return { ok: true };
+  });
+
+  ipcMain.handle('probe:file', async (_e, { file }) => {
+    let target = file;
+    try { target = await resolvePlayablePath(file); } catch { target = file; }
+    return probeFile(target, tools);
+  });
 
   
   
@@ -1086,7 +1656,7 @@ function registerIpc() {
 }
 
 function wirePlayerEvents() {
-  player.on('state', (s) => send('player:state', s));
+  player.on('state', (s) => { send('player:state', s); updateTaskbarButtons(); });
   player.on('progress', (p) => send('player:progress', p));
   player.on('ended', (p) => {
     countCompletedPlay();                     
@@ -1117,6 +1687,7 @@ function countCompletedPlay() {
     durationMs: Number.isFinite(track.duration) ? Math.round(track.duration * 1000) : null,
   });
   try {
+    backupFileBeforeWrite(playCountsFile());
     playcounts.save(playCountsFile(), data);
   } catch (err) {
     console.error('写入播放次数失败:', err.message);
@@ -1146,6 +1717,8 @@ if (!gotLock) {
   app.whenReady().then(async () => {
     await loadSettings();
     playlist = new Playlist(playlistFile());
+    
+    playlist.setPathResolver(resolvePlayablePath);
     playlist.load();
     player = new PlayerSession({ appRoot: APP_ROOT, extraRoots: [APP_ROOT_UNPACKED, RESOURCES_DIR] });
     refreshTools();
@@ -1207,7 +1780,12 @@ if (!gotLock) {
     }
   });
 
-  app.on('window-all-closed', () => {
+  app.on('will-quit', () => {
+    disposeTaskbar();
+    try { rendererServer && rendererServer.close(); } catch {  }
+  });
+
+app.on('window-all-closed', () => {
     if (player) player.dispose();
     app.quit();
   });
