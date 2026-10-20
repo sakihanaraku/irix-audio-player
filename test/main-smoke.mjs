@@ -23,6 +23,8 @@ fs.mkdirSync(userData, { recursive: true });
 
 const handlers = new Map();
 const listeners = new Map();
+
+const rendererListeners = new Map();
 const sentEvents = [];
 const invokedChannels = [];
 const sentChannels = [];
@@ -31,7 +33,13 @@ let readyCallback = null;
 
 class FakeWebContents {
   constructor() { this.listeners = {}; }
-  send(channel, payload) { sentEvents.push({ channel, payload }); }
+  send(channel, payload) {
+    sentEvents.push({ channel, payload });
+    
+    for (const cb of [...(rendererListeners.get(channel) || [])]) {
+      try { cb({}, payload); } catch {  }
+    }
+  }
   on() {}
   removeAllListeners() {}
   setWindowOpenHandler() {}
@@ -45,6 +53,9 @@ class FakeBrowserWindow {
     windowInstance = this;
   }
   loadFile(file) { this.loadedFile = file; return Promise.resolve(); }
+  loadURL(url) { this.loadedUrl = url; return Promise.resolve(); }
+  setThumbarButtons(buttons) { this.thumbarButtons = buttons; return true; }
+  setThumbnailClip(rect) { this.thumbnailClip = rect; }
   isDestroyed() { return false; }
   isMinimized() { return false; }
   isMaximized() { return !!maximized; }
@@ -70,6 +81,10 @@ const fakeElectron = {
     whenReady: () => ({ then: (cb) => { readyCallback = cb; return { catch: () => {} }; } }),
     getPath: (name) => (name === 'userData' ? userData : projectRoot),
     getVersion: () => '1.0.0',
+    
+    setAppUserModelId: (id) => { globalThis.__aumid = id; },
+    
+    commandLine: { appendSwitch: () => {} },
     quit: () => {},
     exit: (code) => { process.exitCode = code; },
   },
@@ -88,6 +103,12 @@ const fakeElectron = {
   },
   Menu: { setApplicationMenu: () => {}, buildFromTemplate: (t) => t },
   shell: { openExternal: () => {}, showItemInFolder: () => {} },
+  
+  nativeImage: {
+    createFromBuffer: () => ({ isEmpty: () => false }),
+    createFromPath: () => ({ isEmpty: () => false }),
+    createEmpty: () => ({ isEmpty: () => true }),
+  },
   contextBridge: { exposeInMainWorld: (name, api) => { globalThis.__exposed = { name, api }; } },
   ipcRenderer: {
     invoke: async (channel, arg) => {
@@ -100,8 +121,16 @@ const fakeElectron = {
       if (!listeners.has(channel)) throw new Error(`主进程没有注册监听: ${channel}`);
       listeners.get(channel)({}, arg);
     },
-    on: () => {},
-    removeListener: () => {},
+    on: (channel, cb) => {
+      const arr = rendererListeners.get(channel) || [];
+      arr.push(cb);
+      rendererListeners.set(channel, arr);
+    },
+    removeListener: (channel, cb) => {
+      const arr = rendererListeners.get(channel) || [];
+      const i = arr.indexOf(cb);
+      if (i >= 0) arr.splice(i, 1);
+    },
   },
   webUtils: { getPathForFile: (file) => file?.__path || '' },
 };
@@ -119,11 +148,20 @@ require(path.join(projectRoot, 'src', 'main', 'main.js'));
 check('main.js 被加载', typeof readyCallback === 'function', 'whenReady 已注册');
 if (readyCallback) await readyCallback();
 
+check('Windows AppUserModelID 已设置（与 build.appId 一致）',
+  globalThis.__aumid === 'com.irix.audioplayer', globalThis.__aumid || '(未设置)');
+
 check('注册了 IPC 处理器', handlers.size > 0, `${handlers.size} 个通道: ${[...handlers.keys()].join(', ')}`);
-check('创建了主窗口', !!windowInstance, windowInstance?.loadedFile || '');
-check('窗口加载 renderer/index.html',
-  (windowInstance?.loadedFile || '').replace(/\\/g, '/').endsWith('src/renderer/index.html'),
-  windowInstance?.loadedFile || '');
+check('创建了主窗口', !!windowInstance, windowInstance?.loadedUrl || windowInstance?.loadedFile || '');
+
+await new Promise((r) => setTimeout(r, 150));
+const loadedTarget = windowInstance?.loadedUrl || windowInstance?.loadedFile || '';
+check('窗口加载 renderer/index.html（优先本地 http 承载）',
+  /^http:\/\/127\.0\.0\.1:\d+\/index\.html$/.test(loadedTarget) ||
+  loadedTarget.replace(/\\/g, '/').endsWith('src/renderer/index.html'),
+  loadedTarget);
+check('页面由本地 http 承载（file:// 是 opaque origin，Media Session / SMTC 用不了）',
+  /^http:\/\/127\.0\.0\.1:\d+\/index\.html$/.test(loadedTarget), loadedTarget);
 check('窗口使用 preload 且开启上下文隔离',
   windowInstance?.options?.webPreferences?.contextIsolation === true &&
   (windowInstance?.options?.webPreferences?.preload || '').includes('preload'),
@@ -165,7 +203,7 @@ const argsFor = {
   probeFile: [path.join(projectRoot, 'test', 'media', 'tone-44k.flac')],
   showItem: [projectRoot],
 };
-const expectedRejects = new Set(['player.play']);
+const expectedRejects = new Set(['player.play', 'ext.uninstall', 'ext.toggle']);
 
 async function walk(obj, prefix) {
   for (const [key, value] of Object.entries(obj)) {
@@ -247,6 +285,42 @@ check('最小窗口尺寸 1366×768',
 check('默认窗口尺寸也是 1366×768',
   windowInstance?.options?.width === 1366 && windowInstance?.options?.height === 768,
   `width=${windowInstance?.options?.width} height=${windowInstance?.options?.height}`);
+
+
+
+
+console.log('\n[6] 任务栏缩略图工具栏');
+const thumbar = windowInstance?.thumbarButtons || [];
+check('主进程注册了 3 个任务栏按钮（上一首 / 播放暂停 / 下一首）',
+  thumbar.length === 3 && thumbar.every((b) => typeof b.click === 'function'),
+  thumbar.map((b) => b.tooltip).join(' / '));
+check('任务栏按钮图标非空（asar 内 PNG 能读出来）',
+  thumbar.length === 3 && thumbar.every((b) => b.icon && b.icon.isEmpty() === false),
+  thumbar.map((b) => (b.icon && b.icon.isEmpty() ? String(b.icon.isEmpty()) : '?')).join(','));
+const taskbarCmds = [];
+exposed.api.on('taskbar:command', (cmd) => taskbarCmds.push(cmd));
+const clickThumbar = (i) => {
+  const btn = thumbar[i];
+  if (!btn || typeof btn.click !== 'function') return false;
+  btn.click();
+  return true;
+};
+const clickedPlay = clickThumbar(1);    
+check('点击任务栏「播放」按钮 → 渲染层收到 taskbar:command=play',
+  clickedPlay && taskbarCmds.includes('play'), `收到: ${taskbarCmds.join(', ') || '(无)'}`);
+clickThumbar(0);                         
+clickThumbar(2);                         
+check('点击任务栏「上一首 / 下一首」→ 渲染层收到 prev / next',
+  taskbarCmds.includes('prev') && taskbarCmds.includes('next'), taskbarCmds.join(', '));
+check('命令确实由主进程发出（webContents.send 里有 taskbar:command）',
+  sentEvents.filter((e) => e.channel === 'taskbar:command').length === 3,
+  `${sentEvents.filter((e) => e.channel === 'taskbar:command').length} 条`);
+
+exposed.api.taskbar.thumbClip({ x: 12, y: 34, width: 300, height: 300 });
+check('封面矩形已转给主进程（setThumbnailClip）',
+  windowInstance?.thumbnailClip?.x === 12 && windowInstance?.thumbnailClip?.width === 300,
+  JSON.stringify(windowInstance?.thumbnailClip));
+
 const coverRes = await exposed.api.cover.get('nonexistent');
 check('cover:get 通道可用（无曲目时返回空）', coverRes && coverRes.dataUrl === null,
   JSON.stringify(coverRes));
@@ -473,9 +547,10 @@ const maxEvents = sentEvents.filter((e) => e.channel === 'window:maximized').len
 check('最大化状态已推送到渲染层', maxEvents >= 2, `${maxEvents} 次 window:maximized 事件`);
 
 
+
 const preloadSrc = fs.readFileSync(path.join(projectRoot, 'src', 'preload', 'preload.js'), 'utf8');
-const whitelist = (preloadSrc.match(/EVENT_CHANNELS = \[([\s\S]*?)\]/) || [, ''])[1]
-  .split(',').map((s) => s.trim().replace(/['"]/g, '')).filter(Boolean);
+const whitelistBlock = (preloadSrc.match(/EVENT_CHANNELS = \[([\s\S]*?)\]/) || [, ''])[1];
+const whitelist = [...whitelistBlock.matchAll(/'([^']+)'/g)].map((m) => m[1]);
 const mainSrc = fs.readFileSync(path.join(projectRoot, 'src', 'main', 'main.js'), 'utf8')
   + fs.readFileSync(path.join(projectRoot, 'src', 'main', 'player.js'), 'utf8');
 const missingEvents = whitelist.filter((c) => !mainSrc.includes(`'${c}'`));
