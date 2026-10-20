@@ -9,13 +9,15 @@ const fs = require('node:fs');
 const { buildDecodeArgs } = require('./ffmpeg');
 const { EqProcessor } = require('./eq');
 
+
 const BACKEND_ALIASES = {
-  auto: 'wasapi-shared',
+  auto: process.platform === 'linux' ? 'alsa' : 'wasapi-shared',
   wasapi: 'wasapi-shared',
   shared: 'wasapi-shared',
   exclusive: 'wasapi-exclusive',
   dsound: 'directsound',
   winmm: 'mme',
+  alsa: 'alsa',
 };
 
 function loadAddon(appRoot, extraRoots = []) {
@@ -109,7 +111,8 @@ class PlayerSession extends EventEmitter {
     this.closeEngine();
 
     
-    const preferred = BACKEND_ALIASES[settings.backend] || settings.backend || 'wasapi-shared';
+    const preferred = BACKEND_ALIASES[settings.backend] || settings.backend ||
+      (process.platform === 'linux' ? 'alsa' : 'wasapi-shared');
     const chain = settings.backendChain && settings.backendChain.length ? settings.backendChain : [preferred];
     const attempts = chain.length ? chain : [preferred];
     let lastErr = null;
