@@ -125,6 +125,11 @@ class Playlist {
   
 
 
+  
+  setPathResolver(fn) {
+    this.pathResolver = typeof fn === "function" ? fn : null;
+  }
+
   async add(inputPaths, tools, { onProgress } = {}) {
     const files = [];
     for (const p of inputPaths) {
@@ -152,15 +157,39 @@ class Playlist {
       }
       if (this.has(f)) { skipped++; continue; }
       let meta;
+      let realPath = f;
+      let containerMeta = null;
       try {
-        meta = await probeFile(f, tools);
+        
+        if (this.pathResolver) {
+          try {
+            const resolved = await this.pathResolver(f);
+            if (resolved && typeof resolved === "object" && resolved.path) {
+              realPath = resolved.path;
+              containerMeta = resolved.meta || null;
+            } else if (typeof resolved === "string" && resolved) {
+              realPath = resolved;
+            }
+          } catch { realPath = f; }
+        }
+        meta = await probeFile(realPath, tools);
+        
+        if (containerMeta && meta && meta.ok) {
+          meta = {
+            ...meta,
+            title: containerMeta.title || meta.title,
+            artist: containerMeta.artist || meta.artist,
+            album: containerMeta.album || meta.album,
+            duration: meta.duration || (containerMeta.duration ? containerMeta.duration / 1000 : 0),
+          };
+        }
       } catch (err) {
         meta = { ok: false, error: err.message, path: f, name: path.basename(f) };
       }
       const track = {
         id: idFor(f),
         path: f,
-        playPath: f,                           
+        playPath: realPath,                    
         name: path.basename(f),
         ext: path.extname(f).slice(1).toLowerCase(),
         size: meta.size || 0,
