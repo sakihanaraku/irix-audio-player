@@ -19,7 +19,8 @@
             "src/devices.cc",
             "src/backend_wasapi.cc",
             "src/backend_dsound.cc",
-            "src/backend_mme.cc"
+            "src/backend_mme.cc",
+            "src/taskbar_win.cc"
           ],
           "defines": [
             "WIN32_LEAN_AND_MEAN",
