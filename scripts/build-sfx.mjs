@@ -27,6 +27,11 @@ const log = (...a) => console.log(...a);
 const fail = (msg) => { console.error('✗ ' + msg); process.exit(1); };
 
 
+
+
+
+
+
 const reportFile = path.join(projectRoot, 'dist', 'sfx-report.json');
 fs.rmSync(reportFile, { force: true });
 
@@ -210,15 +215,42 @@ function check(name, ok, detail = '') {
 
 check('单文件 exe 已生成', exeSize > 100 * 1048576, `${(exeSize / 1048576).toFixed(1)} MB`);
 const tail = fs.readFileSync(outExe);
-const readFooter = (buf) => ({
-  offset: Number(buf.readBigUInt64LE(buf.length - 24)),
-  size: Number(buf.readBigUInt64LE(buf.length - 16)),
-  magic: buf.toString('ascii', buf.length - 8),
+
+
+
+function footerPosition(buf) {
+  const eof = buf.length - 24;
+  if (buf.length < 0x40 || buf[0] !== 0x4D || buf[1] !== 0x5A) return eof;
+  const peOff = buf.readInt32LE(0x3C);
+  if (peOff <= 0 || peOff + 24 > buf.length) return eof;
+  if (buf.toString('ascii', peOff, peOff + 4) !== 'PE\0\0') return eof;
+  const magic = buf.readUInt16LE(peOff + 24);
+  const dirsOff = magic === 0x10B ? peOff + 24 + 96 : magic === 0x20B ? peOff + 24 + 112 : -1;
+  if (dirsOff < 0) return eof;
+  const certEntry = dirsOff + 4 * 8;
+  if (certEntry + 8 > buf.length) return eof;
+  const certOffset = buf.readUInt32LE(certEntry);
+  const certSize = buf.readUInt32LE(certEntry + 4);
+  if (certOffset > 24 && certSize > 0 && certOffset <= buf.length) {
+    for (let pad = 0; pad < 8; pad++) {
+      const at = certOffset - 24 - pad;
+      if (at < 0) break;
+      if (buf.toString('ascii', at + 16, at + 24) === 'AURORASX') return at;
+    }
+    return certOffset - 24;
+  }
+  return eof;
+}
+const footerAt = footerPosition(tail);
+const readFooter = (buf, at) => ({
+  offset: Number(buf.readBigUInt64LE(at)),
+  size: Number(buf.readBigUInt64LE(at + 8)),
+  magic: buf.toString('ascii', at + 16, at + 24),
 });
-const f = readFooter(tail);
-check('尾部索引可解析', f.magic === 'AURORASX', `offset=${f.offset} size=${f.size}`);
-check('索引与实际大小一致', f.offset + f.size + 24 === exeSize,
-  `offset+size+24 = ${f.offset + f.size + 24}`);
+const f = readFooter(tail, footerAt);
+check('尾部索引可解析', f.magic === 'AURORASX', `offset=${f.offset} size=${f.size} at=${footerAt}`);
+check('索引与实际大小一致', f.offset + f.size === footerAt,
+  `offset+size = ${f.offset + f.size}（索引位置 ${footerAt}）`);
 
 
 
