@@ -1,5 +1,5 @@
 # iRix Audio Player
-基于**Electron** + **N-API** + **ffmpeg**。
+基于**Electron** + **N-API** + **ffmpeg**。(!!Linux版本暂时未稳定故未有release)
 ![架构](docs/architecture.png)
 > 界面：左栏封面 / 信息 / 控件、歌词、WebGL 峰值计与状态格；右栏播放列表 + 文件浏览器。默认窗口 1366×768。
 ![界面](docs/screenshot.png)
