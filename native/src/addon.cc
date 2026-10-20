@@ -1,6 +1,7 @@
 
 #include <node_api.h>
 
+#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
@@ -9,6 +10,10 @@
 #include "devices.h"
 #include "engine.h"
 #include "util.h"
+
+#if defined(_WIN32)
+#include "taskbar.h"
+#endif
 
 namespace aurora {
 namespace {
@@ -204,7 +209,13 @@ napi_value VersionJs(napi_env env, napi_callback_info info) {
   SetString(env, obj, "engine", "aurora-audio");
   SetString(env, obj, "version", "1.0.0");
   SetNumber(env, obj, "napiVersion", NAPI_VERSION);
+#if defined(_WIN32)
   SetString(env, obj, "platform", "windows");
+#elif defined(__linux__)
+  SetString(env, obj, "platform", "linux");
+#else
+  SetString(env, obj, "platform", "unknown");
+#endif
   return obj;
 }
 
@@ -271,8 +282,11 @@ napi_value OutputCtor(napi_env env, napi_callback_info info) {
   }
 
   if (!BackendImplemented(p.backend)) {
+    
+    
+    const std::string backendName = p.backend;
     delete wrap;
-    Throw(env, u8"不支持的音频后端: " + p.backend);
+    Throw(env, u8"不支持的音频后端: " + backendName);
     return nullptr;
   }
 
@@ -491,6 +505,105 @@ napi_value OutputGetLastError(napi_env env, napi_callback_info info) {
   return out;
 }
 
+
+
+#if defined(_WIN32)
+bool ReadTaskbarIcon(napi_env env, napi_value parent, const char* key,
+                     aurora::TaskbarIconBitmap* icon) {
+  napi_value value;
+  if (napi_get_named_property(env, parent, key, &value) != napi_ok) return false;
+  napi_valuetype type;
+  if (napi_typeof(env, value, &type) != napi_ok || type != napi_object) return false;
+  icon->width = static_cast<uint32_t>(GetNumberProp(env, value, "width", 0));
+  icon->height = static_cast<uint32_t>(GetNumberProp(env, value, "height", 0));
+  napi_value bitmap;
+  if (napi_get_named_property(env, value, "bitmap", &bitmap) != napi_ok) return false;
+  bool is_buffer = false;
+  napi_is_buffer(env, bitmap, &is_buffer);
+  if (!is_buffer) return false;
+  void* data = nullptr;
+  size_t length = 0;
+  if (napi_get_buffer_info(env, bitmap, &data, &length) != napi_ok || !data) return false;
+  const auto* bytes = static_cast<const uint8_t*>(data);
+  icon->bgra.assign(bytes, bytes + length);
+  return icon->width > 0 && icon->height > 0;
+}
+
+napi_value TaskbarInstallJs(napi_env env, napi_callback_info info) {
+  size_t argc = 3;
+  napi_value argv[3] = {nullptr, nullptr, nullptr};
+  if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc < 3) {
+    Throw(env, "taskbarInstall 需要 3 个参数: (hwndBuffer, icons, onCommand)");
+    return nullptr;
+  }
+  bool is_buffer = false;
+  napi_is_buffer(env, argv[0], &is_buffer);
+  if (!is_buffer) {
+    Throw(env, "参数 1 必须是 getNativeWindowHandle() 返回的 Buffer");
+    return nullptr;
+  }
+  void* raw = nullptr;
+  size_t length = 0;
+  napi_get_buffer_info(env, argv[0], &raw, &length);
+  void* hwnd = nullptr;
+  if (length >= sizeof(uint64_t)) {
+    uint64_t value = 0;
+    std::memcpy(&value, raw, sizeof(value));
+    hwnd = reinterpret_cast<void*>(static_cast<uintptr_t>(value));
+  } else if (length >= sizeof(uint32_t)) {
+    uint32_t value = 0;
+    std::memcpy(&value, raw, sizeof(value));
+    hwnd = reinterpret_cast<void*>(static_cast<uintptr_t>(value));
+  } else {
+    Throw(env, "窗口句柄 Buffer 长度不对");
+    return nullptr;
+  }
+
+  aurora::TaskbarIcons icons;
+  if (!ReadTaskbarIcon(env, argv[1], "prev", &icons.prev) ||
+      !ReadTaskbarIcon(env, argv[1], "play", &icons.play) ||
+      !ReadTaskbarIcon(env, argv[1], "pause", &icons.pause) ||
+      !ReadTaskbarIcon(env, argv[1], "next", &icons.next)) {
+    Throw(env, "图标参数不完整（需要 prev/play/pause/next 的 {width,height,bitmap}）");
+    return nullptr;
+  }
+  napi_valuetype callback_type;
+  napi_typeof(env, argv[2], &callback_type);
+  if (callback_type != napi_function) {
+    Throw(env, "参数 3 必须是点击回调函数");
+    return nullptr;
+  }
+
+  std::string error;
+  if (!aurora::TaskbarInstall(hwnd, icons, env, argv[2], &error)) {
+    Throw(env, error.empty() ? "任务栏按钮安装失败" : error);
+    return nullptr;
+  }
+  napi_value result;
+  napi_get_boolean(env, true, &result);
+  return result;
+}
+
+napi_value TaskbarUpdateJs(napi_env env, napi_callback_info info) {
+  size_t argc = 1;
+  napi_value argv[1] = {nullptr};
+  bool playing = false;
+  if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) == napi_ok && argc >= 1) {
+    napi_get_value_bool(env, argv[0], &playing);
+  }
+  napi_value result;
+  napi_get_boolean(env, aurora::TaskbarUpdate(playing), &result);
+  return result;
+}
+
+napi_value TaskbarDisposeJs(napi_env env, napi_callback_info) {
+  aurora::TaskbarDispose();
+  napi_value result;
+  napi_get_undefined(env, &result);
+  return result;
+}
+#endif  
+
 }  
 }  
 
@@ -541,5 +654,24 @@ NAPI_MODULE_INIT() {
       napi_set_named_property(env, exports, fn.utf8name, f);
     }
   }
+
+#if defined(_WIN32)
+  
+  napi_property_descriptor taskbar_fns[] = {
+      {"taskbarInstall", nullptr, TaskbarInstallJs, nullptr, nullptr, nullptr, napi_default,
+       nullptr},
+      {"taskbarUpdate", nullptr, TaskbarUpdateJs, nullptr, nullptr, nullptr, napi_default,
+       nullptr},
+      {"taskbarDispose", nullptr, TaskbarDisposeJs, nullptr, nullptr, nullptr, napi_default,
+       nullptr},
+  };
+  for (const auto& fn : taskbar_fns) {
+    napi_value f = nullptr;
+    if (napi_create_function(env, fn.utf8name, NAPI_AUTO_LENGTH, fn.method, nullptr, &f) == napi_ok) {
+      napi_set_named_property(env, exports, fn.utf8name, f);
+    }
+  }
+#endif
+
   return exports;
 }
