@@ -12,7 +12,10 @@ const Module = require('node:module');
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mainPath = path.join(projectRoot, 'src', 'main', 'main.js');
 
-const sandbox = path.join(projectRoot, 'dist', 'migrate-unit-test');
+
+
+
+const sandbox = path.join(os.tmpdir(), `irix-migrate-unit-${process.pid}-${Date.now()}`);
 const legacy = path.join(sandbox, 'AuroraPlayer-data');
 const target = path.join(sandbox, 'iRixAudioPlayer-data');
 
@@ -35,9 +38,19 @@ function loadMainWithFakeElectron() {
   const fakeElectron = {
     app: {
       requestSingleInstanceLock: () => true,
+      
+      commandLine: { appendSwitch: () => {}, hasSwitch: () => false },
       on: () => {},
       whenReady: () => ({ then: () => ({ catch: () => {} }) }),
-      getPath: (name) => (name === 'userData' ? path.join(os.tmpdir(), 'irix-unused') : os.tmpdir()),
+      
+      
+      getPath: (name) => {
+        if (name === 'userData') return path.join(os.tmpdir(), 'irix-unused');
+        if (name === 'appData') return path.join(sandbox, 'appData');
+        if (name === 'home') return path.join(sandbox, 'home');
+        if (name === 'music') return path.join(sandbox, 'music');
+        return sandbox;
+      },
       setPath: (name, value) => { if (name === 'userData') capturedUserData = value; },
       getVersion: () => '1.0.0',
       quit: () => {},
