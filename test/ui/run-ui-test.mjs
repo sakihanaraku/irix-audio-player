@@ -88,7 +88,7 @@ const commonFlags = [
 
 
 
-const domRun = await runEdge([...commonFlags, '--virtual-time-budget=40000', '--dump-dom', `${base}/`]);
+const domRun = await runEdge([...commonFlags, '--virtual-time-budget=60000', '--dump-dom', `${base}/`]);
 const match = domRun.out.match(/<pre id="__results">([\s\S]*?)<\/pre>/);
 let report = null;
 if (match) {
@@ -264,6 +264,13 @@ fs.rmSync(shotSelect, { force: true });
 await runEdge([...commonFlags, '--virtual-time-budget=2200', `--screenshot=${shotSelect}`, `${base}/?mode=select`]);
 const shotSelectOk = fs.existsSync(shotSelect) && fs.statSync(shotSelect).size > 5000;
 console.log(`${shotSelectOk ? '✓' : '✗'} 下拉展开截图: ${shotSelect}`);
+
+
+const shotLx = path.join(artifacts, 'ui-lyrics-exclusive.png');
+fs.rmSync(shotLx, { force: true });
+await runEdge([...commonFlags, '--virtual-time-budget=6000', `--screenshot=${shotLx}`, `${base}/?mode=lyrics-exclusive`]);
+const shotLxOk = fs.existsSync(shotLx) && fs.statSync(shotLx).size > 5000;
+console.log(`${shotLxOk ? '✓' : '✗'} 歌词独占截图: ${shotLx}`);
 
 
 
