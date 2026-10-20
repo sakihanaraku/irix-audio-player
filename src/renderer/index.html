@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'none'">
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' data: blob:">
 <title>iRix Audio Player</title>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -30,6 +30,15 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
            stroke-linecap="round" stroke-linejoin="round">
         <path d="M4 19h4V10H4zM10 19h4V5h-4zM16 19h4v-6h-4z"></path>
+      </svg>
+    </button>
+    
+    <button class="tb-btn" id="btnLyricsFull" title="歌词独占" aria-label="歌词独占"
+            data-i18n-title="tip.lyricsExclusive" data-i18n-aria="tip.lyricsExclusive" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3.5" y="4.5" width="17" height="15" rx="2"></rect>
+        <path d="M7 9h10M7 12.2h7M7 15.4h10"></path>
       </svg>
     </button>
     <button class="tb-btn" id="btnEq" title="均衡器" aria-label="均衡器" data-i18n-title="tip.eq" data-i18n-aria="tip.eq">
@@ -314,6 +323,73 @@
 </footer>
 
 
+
+
+<section class="lx-root" id="lyricsExclusive" aria-hidden="true" aria-label="歌词独占"
+         data-i18n-aria="tip.lyricsExclusive">
+  
+  <div class="lx-dim" id="lxDim" aria-hidden="true"></div>
+  <div class="lx-main">
+    <div class="lx-left">
+      <div class="lx-cover" id="lxCoverBox">
+        <img id="lxCoverImg" alt="" data-i18n-alt="cover.alt" hidden>
+        <span id="lxCoverPlaceholder" aria-hidden="true">♪</span>
+      </div>
+      <div class="lx-meta">
+        <div class="lx-time" id="lxTime">00:00 / 00:00</div>
+        <div class="lx-artist" id="lxArtist"><span class="lx-artist-text" id="lxArtistText"></span></div>
+        <div class="lx-title" id="lxTitle"></div>
+      </div>
+    </div>
+    <div class="lx-lyrics-col">
+      <div class="lx-lyrics" id="lxLyrics"></div>
+    </div>
+  </div>
+  
+  <div class="lx-controls" id="lxControls" aria-hidden="true">
+    <div class="lx-controls-inner">
+      <button class="lx-ctl" id="lxCtrlPrev" aria-label="上一首" data-i18n-aria="tip.prev">⏮</button>
+      <button class="lx-ctl primary" id="lxCtrlPlay" aria-label="播放 / 暂停" data-i18n-aria="tip.play">▶</button>
+      <button class="lx-ctl" id="lxCtrlStop" aria-label="停止" data-i18n-aria="tip.stop">⏹</button>
+      <button class="lx-ctl" id="lxCtrlNext" aria-label="下一首" data-i18n-aria="tip.next">⏭</button>
+      <button class="lx-ctl repeat-btn" id="lxCtrlRepeat" aria-label="播放方式" data-i18n-aria="pl.playMode"></button>
+      
+      <div class="lx-volume" id="lxVolumeBox">
+        <button class="lx-vol-btn" id="lxVolIcon" type="button" aria-pressed="false"
+                aria-label="静音 / 取消静音" data-i18n-aria="tip.mute">
+          <svg class="ico-vol-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 9.5h3.2L11.5 6v12L7.2 14.5H4z"></path>
+            <path d="M16 9.8l4.4 4.4M20.4 9.8L16 14.2"></path>
+          </svg>
+          <svg class="ico-vol-low" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 9.5h3.2L11.5 6v12L7.2 14.5H4z"></path>
+            <path d="M15 9.6a3.4 3.4 0 0 1 0 4.8"></path>
+          </svg>
+          <svg class="ico-vol-high" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 9.5h3.2L11.5 6v12L7.2 14.5H4z"></path>
+            <path d="M15 9.6a3.4 3.4 0 0 1 0 4.8"></path>
+            <path d="M17.8 7a6.8 6.8 0 0 1 0 9.9"></path>
+          </svg>
+        </button>
+        <input type="range" id="lxVolume" min="0" max="100" value="80" aria-label="音量" data-i18n-aria="tip.volume">
+        <span class="lx-vol-num" id="lxVolNum">80</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="lx-progress-zone" id="lxProgressZone">
+    <div class="lx-progress-time" id="lxProgressTime" aria-hidden="true" hidden>00:00/00:00</div>
+    <span class="lx-progress-head" id="lxProgressHead" aria-hidden="true"></span>
+    <div class="lx-progress" id="lxProgress" role="progressbar" aria-hidden="true">
+      <i class="lx-progress-fill" id="lxProgressFill"></i>
+    </div>
+  </div>
+</section>
+
+
 <div class="modal-mask" id="eqModal" hidden>
   <div class="modal eq-modal" role="dialog" aria-modal="true" aria-label="均衡器">
     <div class="modal-head">
@@ -474,7 +550,15 @@
     <div class="modal-head">
       <h2 data-i18n="set.title">设置</h2>
       <label class="lang-pick" title="Language / 言語 / 语言">
-        <span aria-hidden="true">🌐</span>
+        
+
+
+        <svg class="lang-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="8.6"></circle>
+          <line x1="3.4" y1="12" x2="20.6" y2="12"></line>
+          <ellipse cx="12" cy="12" rx="4.2" ry="8.6"></ellipse>
+        </svg>
         <select id="selLanguage">
           <option value="auto" data-i18n="lang.auto">跟随系统</option>
           <option value="zh">简体中文</option>
@@ -656,6 +740,15 @@
       </div>
 
       
+    <h3 data-i18n="ext.title">扩展</h3>
+    <p class="hint" data-i18n="ext.hint">扩展是单独的插件包（.xtxs）。安装或卸载后需要重启应用才会生效。</p>
+    <div class="ext-list" id="extList"></div>
+    <div class="ext-actions">
+      <button class="btn" id="btnExtInstall" data-i18n="ext.install">安装扩展…</button>
+      <button class="btn" id="btnExtRestart" data-i18n="ext.restart">重启应用</button>
+      <span class="hint" id="extStatus" hidden></span>
+    </div>
+    
       <h3 data-i18n="about.title">关于</h3>
       <div class="about">
         <div class="about-line">
