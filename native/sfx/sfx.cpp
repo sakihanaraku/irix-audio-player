@@ -9,6 +9,8 @@
 
 
 
+
+
 #include <windows.h>
 #include <shellapi.h>
 #include <shlobj.h>      
@@ -153,6 +155,69 @@ struct Footer {
   bool valid = false;
 };
 
+
+
+long long SignedDataEnd(HANDLE file, long long fileSize) {
+  unsigned char dos[64] = {0};
+  DWORD got = 0;
+  LARGE_INTEGER pos{};
+  if (!SetFilePointerEx(file, pos, nullptr, FILE_BEGIN)) return 0;
+  if (!ReadFile(file, dos, sizeof(dos), &got, nullptr) || got != sizeof(dos)) return 0;
+  if (dos[0] != 'M' || dos[1] != 'Z') return 0;
+
+  int peOff32 = 0;
+  memcpy(&peOff32, dos + 0x3C, 4);
+  const long long peOff = peOff32;
+  if (peOff <= 0 || peOff > fileSize - 4) return 0;
+
+  
+  unsigned char hdr[4 + 20 + 112 + 5 * 8] = {0};
+  pos.QuadPart = peOff;
+  if (!SetFilePointerEx(file, pos, nullptr, FILE_BEGIN)) return 0;
+  got = 0;
+  if (!ReadFile(file, hdr, sizeof(hdr), &got, nullptr) || got < 4 + 20 + 2) return 0;
+  if (memcmp(hdr, "PE\0\0", 4) != 0) return 0;
+
+  unsigned short magic = 0;
+  memcpy(&magic, hdr + 24, 2);
+  size_t dirsOff = 0;
+  if (magic == 0x10B) dirsOff = 24 + 96;        
+  else if (magic == 0x20B) dirsOff = 24 + 112;  
+  else return 0;
+  const size_t certEntry = dirsOff + 4 * 8;     
+  if (got < certEntry + 8) return 0;
+
+  unsigned int certOffset = 0;
+  unsigned int certSize = 0;
+  memcpy(&certOffset, hdr + certEntry, 4);
+  memcpy(&certSize, hdr + certEntry + 4, 4);
+  if (certOffset == 0 || certSize == 0) return 0;
+  if (static_cast<long long>(certOffset) > fileSize) return 0;
+  return static_cast<long long>(certOffset);
+}
+
+bool ReadFooterAt(HANDLE file, long long at, Footer* out) {
+  if (at < 0) return false;
+  LARGE_INTEGER pos{};
+  pos.QuadPart = at;
+  if (!SetFilePointerEx(file, pos, nullptr, FILE_BEGIN)) return false;
+  unsigned char raw[24] = {0};
+  DWORD read = 0;
+  if (!ReadFile(file, raw, 24, &read, nullptr) || read != 24) return false;
+  if (memcmp(raw + 16, kMagic, 8) != 0) return false;
+  unsigned long long offset = 0;
+  unsigned long long size = 0;
+  memcpy(&offset, raw, 8);
+  memcpy(&size, raw + 8, 8);
+  if (offset == 0 || size == 0) return false;
+  
+  if (static_cast<long long>(offset + size) != at) return false;
+  out->offset = offset;
+  out->size = size;
+  out->valid = true;
+  return true;
+}
+
 Footer ReadFooter(HANDLE file) {
   Footer f;
   LARGE_INTEGER fileSize{};
@@ -160,19 +225,19 @@ Footer ReadFooter(HANDLE file) {
   const long long kFooter = 24;
   if (fileSize.QuadPart <= kFooter) return f;
 
-  LARGE_INTEGER pos{};
-  pos.QuadPart = fileSize.QuadPart - kFooter;
-  if (!SetFilePointerEx(file, pos, nullptr, FILE_BEGIN)) return f;
-  unsigned char raw[24] = {0};
-  DWORD read = 0;
-  if (!ReadFile(file, raw, 24, &read, nullptr) || read != 24) return f;
-  if (memcmp(raw + 16, kMagic, 8) != 0) return f;
-  memcpy(&f.offset, raw, 8);
-  memcpy(&f.size, raw + 8, 8);
-  if (f.offset == 0 || f.size == 0) return f;
-  if (static_cast<long long>(f.offset + f.size) > fileSize.QuadPart) return f;
-  f.valid = true;
-  return f;
+  
+  
+  const long long signedEnd = SignedDataEnd(file, fileSize.QuadPart);
+  if (signedEnd > kFooter) {
+    for (int pad = 0; pad < 8; ++pad) {
+      const long long candidate = signedEnd - kFooter - pad;
+      if (candidate < kFooter) break;
+      if (ReadFooterAt(file, candidate, &f)) return f;
+    }
+  }
+  
+  if (ReadFooterAt(file, fileSize.QuadPart - kFooter, &f)) return f;
+  return Footer{};
 }
 
 
