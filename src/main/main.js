@@ -563,10 +563,12 @@ function send(channel, payload) {
 
 
 
-app.commandLine.appendSwitch('enable-features', 'MediaSessionService,HardwareMediaKeyHandling');
 
 
-if (process.platform === 'linux') app.commandLine.appendSwitch('enable-transparent-visuals');
+try { app.commandLine?.appendSwitch?.('enable-features', 'MediaSessionService,HardwareMediaKeyHandling'); } catch {  }
+
+
+if (process.platform === 'linux') { try { app.commandLine?.appendSwitch?.('enable-transparent-visuals'); } catch {  } }
 
 
 
