@@ -579,6 +579,19 @@
     const idleMode = location.search.includes('idle');
     const themeMode = location.search.includes('theme');
     const langMode = /mode=(en|ja)/.test(location.search);
+    if (location.search.includes('mode=lyrics-exclusive')) {
+      
+      setTimeout(() => {
+        emit('player:state', {
+          status: 'playing', trackId: 't1', duration: 391.2, position: 6, volume: 0.8, format: fmtOf(),
+        });
+        setTimeout(() => {
+          const btn = $('btnLyricsFull');
+          if (btn) btn.click();
+        }, 900);
+      }, 600);
+      return;
+    }
 
     
     const loopProgress = (peaks) => {
@@ -892,8 +905,8 @@
       
       const btns = [...document.querySelectorAll('.tb-controls .tb-btn')];
       const ids = btns.map((b) => b.id);
-      check('标题栏含 7 个控件（排行榜/EQ/明暗/设置/最小化/最大化/关闭）',
-        JSON.stringify(ids) === JSON.stringify(['btnRank', 'btnEq', 'btnThemeMode', 'btnSettings', 'btnMin', 'btnMax', 'btnClose']),
+      check('标题栏含 8 个控件（排行榜/歌词独占/EQ/明暗/设置/最小化/最大化/关闭）',
+        JSON.stringify(ids) === JSON.stringify(['btnRank', 'btnLyricsFull', 'btnEq', 'btnThemeMode', 'btnSettings', 'btnMin', 'btnMax', 'btnClose']),
         ids.join(','));
       
       check('标题栏没有版本徽标（版本号改在设置里显示）',
@@ -902,9 +915,9 @@
       const rects = btns.map((b) => b.getBoundingClientRect());
       const gaps = [];
       for (let i = 1; i < rects.length; i++) gaps.push(Math.round(rects[i].left - rects[i - 1].right));
-      check('七个控件间距一致（排行榜在最左）', new Set(gaps).size === 1 && gaps[0] >= 0, `间距 ${gaps.join('/')} px`);
-      check('明暗切换紧邻设置按钮左侧', ids[2] === 'btnThemeMode' && ids[3] === 'btnSettings', '');
-      check('设置按钮位于最小化左侧', ids[3] === 'btnSettings' && ids[4] === 'btnMin', '');
+      check('八个控件间距一致（排行榜在最左）', new Set(gaps).size === 1 && gaps[0] >= 0, `间距 ${gaps.join('/')} px`);
+      check('明暗切换紧邻设置按钮左侧', ids[3] === 'btnThemeMode' && ids[4] === 'btnSettings', '');
+      check('设置按钮位于最小化左侧', ids[4] === 'btnSettings' && ids[5] === 'btnMin', '');
 
       
       const visibleIcon = (b) => [...b.querySelectorAll('svg')].find((s) => s.getBoundingClientRect().width > 0) || null;
@@ -1150,8 +1163,35 @@
         await new Promise((r) => setTimeout(r, 40));
         check('点空白处收起',
           other.closest('.sel-wrap').querySelector('.sel-pop').hidden === true, '');
+        
+        
+        {
+          const devVals = [...$('selDevice').options].map((o) => o.value);
+          check('设备列表没有重复项（并发刷新不会重复追加）',
+            new Set(devVals).size === devVals.length,
+            `${devVals.length} 项 / 去重后 ${new Set(devVals).size} 项`);
+        }
         check('语言切换时下拉标签同步（选项文案会被重写）',
           typeof $('selLanguage').closest('.sel-wrap').querySelector('.sel-label').textContent === 'string', '');
+        
+        check('语言选择器与文件浏览器图标都是内联 SVG（不依赖 emoji 字体）',
+          !!$('settingsModal').querySelector('.lang-pick svg') &&
+          !($('settingsModal').querySelector('.lang-pick')?.textContent || '').includes('🌐') &&
+          (document.querySelectorAll('.br-item .br-ico').length === 0 ||
+            document.querySelectorAll('.br-item .br-ico svg').length > 0) &&
+          !document.body.innerHTML.includes('📁'), '');
+        
+        check('软件渲染时自动降级玻璃效果（性能）', (() => {
+          const soft = document.body.classList.contains('software-render');
+          const el = document.querySelector('.panel');
+          const bf = el ? (getComputedStyle(el).backdropFilter || getComputedStyle(el).webkitBackdropFilter || '') : '';
+          return !soft || bf === 'none' || bf === '';
+        })(), `software-render=${document.body.classList.contains('software-render')}`);
+        
+        check('音频转换进度条不再写 width（改用 transform）', (() => {
+          const bar = $('convBar');
+          return !bar || bar.style.width === '';
+        })(), `width=${$('convBar')?.style.width || '(空)'}`);
       }
 
 
@@ -1231,10 +1271,12 @@
       const panelStyle = getComputedStyle(document.querySelector('.panel'));
       check('存在背景图层', !!bgLayer && !!$('bgImage'), '');
       check('默认纯色背景（图层未激活）', !bgLayer.classList.contains('active'), bgLayer.className);
-      check('面板为半透明 + 背景模糊（玻璃效果）',
-        /rgba\(/.test(panelStyle.backgroundColor) &&
-        (panelStyle.backdropFilter || panelStyle.webkitBackdropFilter || '').includes('blur'),
-        `${panelStyle.backgroundColor} · ${panelStyle.backdropFilter || panelStyle.webkitBackdropFilter}`);
+      check('面板为半透明 + 背景模糊（玻璃效果；软件渲染时按性能降级为无模糊）', (() => {
+        const soft = document.body.classList.contains('software-render');
+        const bf = panelStyle.backdropFilter || panelStyle.webkitBackdropFilter || '';
+        const ok = /rgba\(/.test(panelStyle.backgroundColor) && (soft ? (bf === 'none' || bf === '') : bf.includes('blur'));
+        return ok;
+      })(), `software-render=${document.body.classList.contains('software-render')} · ${panelStyle.backgroundColor} · ${panelStyle.backdropFilter || panelStyle.webkitBackdropFilter}`);
       check('设置里有背景来源与三个按钮',
         !!$('selBgSource') && !!$('btnPickBg') && !!$('btnFetchBg') && !!$('btnClearBg') &&
         $('selBgSource').options.length === 3, `${$('selBgSource').options.length} 个来源选项`);
@@ -1438,12 +1480,15 @@
       await new Promise((r) => setTimeout(r, 60));
 
       
+      
+      
+      
       document.startViewTransition = undefined;
       const beforeFallback = document.body.classList.contains('light');
       let fallbackErr = '';
       try {
         $('btnThemeMode').click();
-        await new Promise((r) => setTimeout(r, 40));
+        await new Promise((r) => setTimeout(r, 220));
       } catch (e) { fallbackErr = String(e.message || e); }
       check('不支持 View Transitions 时降级为直接切换',
         !fallbackErr && document.body.classList.contains('light') !== beforeFallback && $('errBox').hidden === true,
@@ -2056,8 +2101,9 @@
       
       {
         const mask = $('rankModal');
-        check('排行榜按钮紧挨均衡器按钮左侧',
-          !!$('btnRank') && $('btnRank').nextElementSibling?.id === 'btnEq',
+        check('排行榜按钮右侧依次是歌词独占、均衡器按钮',
+          !!$('btnRank') && $('btnRank').nextElementSibling?.id === 'btnLyricsFull' &&
+          $('btnRank').nextElementSibling?.nextElementSibling?.id === 'btnEq',
           $('btnRank')?.nextElementSibling?.id || '(无)');
         check('排行榜面板默认隐藏', mask.hidden === true, '');
         $('btnRank').click();
@@ -3917,6 +3963,223 @@
         })(), $('aboutLicenses').textContent.slice(0, 140));
       } catch (err) {
         check('关于检查块执行异常', false,
+          String(err && err.stack ? err.stack.split('\n').slice(0, 2).join(' | ') : err));
+      }
+
+      
+      try {
+        const btn = $('btnLyricsFull');
+        const sec = $('lyricsExclusive');
+        const tb = document.querySelector('.titlebar');
+        check('歌词独占：标题栏有切换按钮', !!btn && btn.getAttribute('aria-pressed') === 'false', '');
+        
+        btn.click();
+        const bodyDisplay = getComputedStyle(document.body).display;
+        const rect = sec.getBoundingClientRect();
+        check('歌词独占：打开后 body 类生效且标题栏保留',
+          document.body.classList.contains('lyrics-exclusive') &&
+          bodyDisplay !== 'none' && getComputedStyle(tb).display !== 'none' && btn.getAttribute('aria-pressed') === 'true',
+          `body=${bodyDisplay} titlebar=${getComputedStyle(tb).display}`);
+        check('歌词独占：独占层铺满标题栏以下区域（不是 0 尺寸）',
+          rect.width > 200 && rect.height > 200 &&
+          Math.round(rect.top) === Math.round(tb.getBoundingClientRect().height),
+          `${Math.round(rect.width)}x${Math.round(rect.height)} top=${Math.round(rect.top)}`);
+        check('歌词独占：时间/艺术家/曲名/歌词列都已接好',
+          !!$('lxTime') && !!$('lxArtist') && !!$('lxTitle') && !!$('lxLyrics') &&
+          $('lxTime').textContent.includes('/') && $('lxTitle').textContent.length > 0,
+          `time=${$('lxTime').textContent} title=${$('lxTitle').textContent}`);
+        
+        await new Promise((r) => setTimeout(r, 360));
+        check('歌词独占：打开后背景压暗层生效',
+          !!$('lxDim') && getComputedStyle($('lxDim')).backgroundColor !== 'rgba(0, 0, 0, 0)',
+          getComputedStyle($('lxDim') || document.body).backgroundColor);
+        check('歌词独占：淡入终态 = 完全不透明（动画不跑也必须是可见的）',
+          (() => {
+            
+            const prev = sec.style.transition;
+            sec.style.transition = 'none';
+            void sec.offsetWidth;
+            const opacity = getComputedStyle(sec).opacity;
+            sec.style.transition = prev;
+            return opacity === '1' && getComputedStyle(sec).visibility === 'visible';
+          })(),
+          `opacity=${getComputedStyle(sec).opacity} visibility=${getComputedStyle(sec).visibility}`);
+        check('歌词独占：最底部贴边通栏细进度条',
+          (() => {
+            const bar = $('lxProgress');
+            if (!bar) return false;
+            const r = bar.getBoundingClientRect();
+            return r.width >= window.innerWidth - 2 && Math.abs(r.bottom - window.innerHeight) <= 1 &&
+              r.height > 0 && r.height <= 6;
+          })(),
+          (() => {
+            const r = $('lxProgress') ? $('lxProgress').getBoundingClientRect() : null;
+            return r ? `${Math.round(r.width)}x${Math.round(r.height)} bottom=${Math.round(r.bottom)}/${window.innerHeight}` : '无';
+          })());
+        check('歌词独占：歌词字体已加粗（普通行 ≥500）',
+          (() => {
+            const probe = document.createElement('div');
+            probe.className = 'lx-line';
+            probe.textContent = 'probe';
+            $('lxLyrics').appendChild(probe);
+            const weight = parseInt(getComputedStyle(probe).fontWeight, 10) || 400;
+            probe.remove();
+            return weight >= 500;
+          })(), '');
+        
+        const leftEl = document.querySelector('.lx-left');
+        const lyricsEl = document.querySelector('.lx-lyrics-col');
+        const place = (y) => document.dispatchEvent(new PointerEvent('pointermove', {
+          bubbles: true, clientX: Math.round(window.innerWidth / 2), clientY: Math.round(y),
+        }));
+        
+        const leftShift = () => {
+          const prev = leftEl.style.transition;
+          leftEl.style.transition = 'none';
+          void leftEl.offsetWidth;
+          const m = new DOMMatrixReadOnly(getComputedStyle(leftEl).transform);
+          leftEl.style.transition = prev;
+          return m.m42;
+        };
+        place(window.innerHeight - 2);            
+        const bottomOpened = $('lyricsExclusive').classList.contains('controls-open') &&
+          $('lxControls').getAttribute('aria-hidden') === 'false';
+        place(window.innerHeight - 40);           
+        const openedImmediate = $('lyricsExclusive').classList.contains('controls-open');
+        const shift = leftShift();
+        
+        const ctlEl = $('lxControls');
+        const prevCtlT = ctlEl.style.transition;
+        ctlEl.style.transition = 'none';
+        void ctlEl.offsetWidth;
+        const ctlBottom = ctlEl.getBoundingClientRect().bottom;
+        ctlEl.style.transition = prevCtlT;
+        const flush = Math.abs(ctlBottom - window.innerHeight) <= 1;
+        const peOk = getComputedStyle(ctlEl).pointerEvents === 'none' &&
+          getComputedStyle($('lxCtrlPlay')).pointerEvents === 'auto' &&
+          getComputedStyle($('lxVolumeBox')).pointerEvents === 'auto';
+        check('歌词独占：靠近底部立即滑出（最底部也触发），封面/信息上移、歌词不动',
+          bottomOpened && openedImmediate && shift < -20 && getComputedStyle(lyricsEl).transform === 'none' &&
+          flush && peOk,
+          `bottomOpened=${bottomOpened} opened=${openedImmediate} 上移=${Math.round(shift)}px` +
+          ` 贴底=${flush}(${Math.round(ctlBottom)}/${window.innerHeight}) 事件穿透=${peOk}`);
+        place(window.innerHeight - 200);          
+        const closedImmediate = !$('lyricsExclusive').classList.contains('controls-open') &&
+          $('lxControls').getAttribute('aria-hidden') === 'true';
+        const shiftBack = leftShift();
+        check('歌词独占：离开底部区域立即滑回且封面/信息回位',
+          closedImmediate && Math.abs(shiftBack) < 0.5,
+          `closed=${closedImmediate} 回位位移=${Math.round(shiftBack)}px`);
+        
+        place(window.innerHeight - 4);            
+        const lxVolEl = $('lxVolume');
+        const lxVolIcon = $('lxVolIcon');
+        const volBoxRect = $('lxVolumeBox').getBoundingClientRect();
+        const ctlRect2 = $('lxControls').getBoundingClientRect();
+        const volInBar = volBoxRect.right <= ctlRect2.right + 1 &&
+          volBoxRect.bottom <= ctlRect2.bottom + 1 && volBoxRect.right >= ctlRect2.right - 60;
+        lxVolEl.value = '30';
+        lxVolEl.dispatchEvent(new Event('input', { bubbles: true }));
+        const sliderSynced = $('volume').value === '30' && $('lxVolNum').textContent === '30';
+        lxVolIcon.click();
+        const muteSynced = $('volIcon').dataset.level === 'mute' &&
+          $('lxVolIcon').dataset.level === 'mute' && $('lxVolNum').textContent === tr('vol.muted');
+        lxVolIcon.click();                        
+        const unmuteSynced = $('lxVolIcon').dataset.level !== 'mute' && $('lxVolNum').textContent === '30';
+        check('歌词独占：控件栏右下角音量控件（位置/滑杆/静音与主界面同步）',
+          volInBar && sliderSynced && muteSynced && unmuteSynced,
+          `inBar=${volInBar} slider=${sliderSynced} mute=${muteSynced} unmute=${unmuteSynced}`);
+        place(window.innerHeight - 200);          
+        
+        emit('player:state', {
+          status: 'playing', trackId: 't1', duration: 391.2, position: 60, volume: 0.8, format: fmtOf(),
+        });
+        await new Promise((r) => setTimeout(r, 200));
+        const zone = $('lxProgressZone');
+        const zr = zone.getBoundingClientRect();
+        const pointAt = (fx) => ({
+          x: Math.round(zr.left + zr.width * fx),
+          y: Math.round(zr.top + 7),
+        });
+        let pt = pointAt(0.5);
+        document.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: pt.x, clientY: pt.y }));
+        await new Promise((r) => setTimeout(r, 80));
+        const bubble = $('lxProgressTime');
+        const hoverOk = bubble.hidden === false && /^\d\d:\d\d\/\d\d:\d\d$/.test(bubble.textContent.trim()) &&
+          $('lxProgressZone').classList.contains('is-hover');
+        zone.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: pt.x, clientY: pt.y }));
+        pt = pointAt(0.75);
+        window.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, button: 0, clientX: pt.x, clientY: pt.y }));
+        await new Promise((r) => setTimeout(r, 100));
+        const fillMid = $('lxProgressFill').style.transform;
+        const bubbleMid = $('lxProgressTime').textContent.trim();
+        const lxTimeMid = $('lxTime').textContent.trim();
+        const dragging = $('lxProgressZone').classList.contains('is-dragging');
+        window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, clientX: pt.x, clientY: pt.y }));
+        await new Promise((r) => setTimeout(r, 250));
+        check('歌词独占：进度条悬停显示 xx:xx/xx:xx，拖动时进度/时间/歌词同步',
+          hoverOk && dragging && /scaleX\(0\.7/.test(fillMid) && lxTimeMid === bubbleMid &&
+          /^\d\d:\d\d\/\d\d:\d\d$/.test(bubbleMid), `hover=${hoverOk} drag=${dragging} fill=${fillMid} bubble=${bubbleMid} lxTime=${lxTimeMid}`);
+        
+        place(window.innerHeight - 260);
+        await new Promise((r) => setTimeout(r, 80));
+        check('歌词独占：离开进度条后时间气泡收回',
+          $('lxProgressTime').hidden === true && !$('lxProgressZone').classList.contains('is-hover'),
+          `hidden=${$('lxProgressTime').hidden}`);
+        
+        btn.click();
+        await new Promise((r) => setTimeout(r, 360));
+        check('歌词独占：再按一次关闭并恢复主界面',
+          !document.body.classList.contains('lyrics-exclusive') &&
+          getComputedStyle(document.querySelector('.layout')).display !== 'none' &&
+          btn.getAttribute('aria-pressed') === 'false', '');
+        check('歌词独占：关闭后淡出到不可见（终态不依赖动画）',
+          (() => {
+            const prev = sec.style.transition;
+            sec.style.transition = 'none';
+            void sec.offsetWidth;
+            const opacity = getComputedStyle(sec).opacity;
+            sec.style.transition = prev;
+            return opacity === '0';
+          })(), '');
+        
+        emit('player:state', {
+          status: 'playing', trackId: 't1', duration: 391.2, position: 6, volume: 0.8, format: fmtOf(),
+        });
+        await new Promise((r) => setTimeout(r, 300));
+        btn.click();                              
+        await new Promise((r) => setTimeout(r, 500));
+        check('歌词独占：停止前确实有内容（封面/歌词已加载）',
+          !$('lxCoverImg').hidden && document.querySelectorAll('#lxLyrics .lx-line').length > 0,
+          `coverHidden=${$('lxCoverImg').hidden} lines=${document.querySelectorAll('#lxLyrics .lx-line').length}`);
+        place(window.innerHeight - 30);           
+        await new Promise((r) => setTimeout(r, 120));
+        const iconBeforeStop = $('lxCtrlPlay').textContent;
+        $('btnStop').click();                     
+        await new Promise((r) => setTimeout(r, 450));
+        check('歌词独占：停止后控件栏播放/暂停图标回到 ▶',
+          iconBeforeStop === '⏸' && $('lxCtrlPlay').textContent === '▶',
+          `停止前=${iconBeforeStop} 停止后=${$('lxCtrlPlay').textContent}`);
+        const reset = {
+          coverHidden: $('lxCoverImg').hidden,
+          lines: document.querySelectorAll('#lxLyrics .lx-line').length,
+          title: $('lxTitle').textContent,
+          mainTitle: $('npTitle').textContent,
+          time: $('lxTime').textContent,
+          fill: $('lxProgressFill').style.transform,
+          artist: $('lxArtistText').textContent,
+          marquee: $('lxArtist').classList.contains('is-marquee'),
+          enter: $('lxLyrics').classList.contains('is-enter'),
+        };
+        check('歌词独占：停止播放后完全重置（封面/歌词/时间/进度条/滚动类）',
+          reset.coverHidden === true && reset.lines === 0 && reset.title === reset.mainTitle &&
+          reset.time === '00:00/00:00' && /^scaleX\(0/.test(reset.fill) &&
+          reset.artist === '' && reset.marquee === false && reset.enter === false,
+          JSON.stringify(reset));
+        btn.click();                              
+        await new Promise((r) => setTimeout(r, 300));
+      } catch (err) {
+        check('歌词独占检查块执行异常', false,
           String(err && err.stack ? err.stack.split('\n').slice(0, 2).join(' | ') : err));
       }
 
