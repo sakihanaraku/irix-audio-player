@@ -32,6 +32,8 @@ const i18nSrc = read('src/renderer/i18n.js');
 
 const sfxSrc = fs.readFileSync(path.join(projectRoot, 'native', 'sfx', 'sfx.cpp'), 'utf8');
 
+const taskbarNativeSrc = fs.readFileSync(path.join(projectRoot, 'native', 'src', 'taskbar_win.cc'), 'utf8');
+
 const checks = [
   ['应用名为 iRix Audio Player', html.includes('<title>iRix Audio Player</title>') &&
     html.includes('>iRix Audio Player</span>') && main.includes("APP_DISPLAY_NAME = 'iRix Audio Player'")],
@@ -59,8 +61,8 @@ const checks = [
         return lic.includes('MIT License') && /Copyright \(c\)/.test(lic) && pkg.license === 'MIT';
       } catch { return false; }
     })()],
-  ['版本号为 1.0.1-release；标题栏已无版本徽标，版本显示在设置里',
-    JSON.parse(fs.readFileSync(path.join(out, 'package.json'), 'utf8')).version === '1.0.1-release' &&
+  ['版本号为 1.0.2-release；标题栏已无版本徽标，版本显示在设置里',
+    JSON.parse(fs.readFileSync(path.join(out, 'package.json'), 'utf8')).version === '1.0.2-release' &&
     
     !html.includes('app-version') && !html.includes('id="appVersion"') &&
     
@@ -70,6 +72,102 @@ const checks = [
     fs.existsSync(path.join(out, 'src', 'renderer', 'i18n.js')) &&
     html.includes('src="i18n.js"') && html.includes('id="selLanguage"') &&
     ['zh', 'ja', 'en'].every((l) => i18nSrc.includes(`${l}: {`))],
+  ['语言选择器 / 文件浏览器的图标用内联 SVG（Linux 无 emoji 字体时不会显示成豆腐块）',
+    html.includes('class="lang-globe"') && !html.includes('🌐') &&
+    renderer.includes('br-ico') && !renderer.includes('📁') &&
+    css.includes('.lang-pick svg') && css.includes('.br-ico svg')],
+  ['软件渲染时自动关闭玻璃模糊（backdrop-filter 每帧重算背景模糊，很贵）',
+    renderer.includes('detectSoftwareRender') && renderer.includes("classList.toggle('software-render'") &&
+    css.includes('body:is(.no-glass, .software-render)')],
+  ['进度条用 transform: scaleX（不动 width，避免触发布局）',
+    /\.conv-bar > i[\s\S]{0,260}transform: scaleX/.test(css) &&
+    !renderer.includes("$('convBar').style.width")],
+  ['尊重系统「减少动态效果」设置（prefers-reduced-motion）',
+    css.includes('prefers-reduced-motion') && css.includes('animation-duration: .01ms')],
+  ['长列表滚动优化（屏幕外的行不参与绘制 + 滚轮行高缓存）',
+    css.includes('content-visibility: auto') && css.includes('contain-intrinsic-size') &&
+    css.includes('contain: layout paint style') && css.includes('overflow-anchor: none') &&
+    
+    renderer.includes('pitchRows') && renderer.includes('rowPitch()')],
+  ['扩展系统（.xtxs 可选插件 + 安装/卸载/启用 + 重启生效）',
+    main.includes('getExtensions') && main.includes('ext:install') && main.includes('ext:list') &&
+    main.includes('resolvePlayablePath') && main.includes('setPathResolver') && main.includes('.cover.img') && main.includes("extensions: ['xtxs', 'zip']") &&
+    preload.includes('ext:') && html.includes('id="extList"') && html.includes('id="btnExtInstall"') &&
+    renderer.includes('bindExtensions') && renderer.includes('renderExtensions') &&
+    css.includes('.ext-item')],
+  ['数据安全网：写前自动备份 + 读失败自动从备份恢复',
+    main.includes('backupFileBeforeWrite') && main.includes('restoreFromBackup') &&
+    main.includes('BACKUPS_DIR_NAME') && main.includes('BACKUP_KEEP')],
+  ['渲染层由本地 http(127.0.0.1) 承载（file:// 是 opaque origin ✗ → 媒体元素/媒体键/媒体卡片全被拒）',
+    main.includes('startRendererServer') && main.includes('127.0.0.1') &&
+    main.includes('loadURL(') && main.includes('rendererServer.close')],
+  ['歌词还没到第一句时视图回到歌词头（-1 === -1 的 early return 会吞掉首次定位 ✗）',
+    renderer.includes('idx !== -1') && renderer.includes('新歌词从"头"开始')],
+  ['渲染层不得使用 Node 的 Buffer（contextIsolation 下没有 ✗，用了会静默抛错）',
+    !renderer.includes('Buffer.from') && !renderer.includes('Buffer.alloc')],
+  ['SMTC 保活音频用 data URL（blob:file:// 会被 Electron 拦 ✗）+ 封面不再因 hasCover=false 跳过',
+    renderer.includes('data:audio/wav;base64,') && !renderer.includes('URL.createObjectURL(new Blob') &&
+    main.includes('silentWavUrl') &&
+    renderer.includes("if (!track) return showPlaceholder();")],
+  ['WebGL 优先恢复（preventDefault + webglcontextrestored 重建），实在不行才 2D 兜底',
+    renderer.includes('switchPeakMeterTo2D') && renderer.includes('e.preventDefault()') &&
+    renderer.includes('setupPeakGL') && renderer.includes('webglcontextrestored') &&
+    renderer.includes('PEAK_RESTORE_WAIT_MS')],
+  ['玻璃面板不发糊（不在 backdrop-filter 元素上叠 will-change / paint 隔离）',
+    !/\.modal,[\s\S]{0,80}will-change: transform/.test(css) && !/\.modal-body,\s*\.rank-list/.test(css)],
+  ['便携版换文件夹后能找回旧设置（findLegacySettingsSource）',
+    main.includes('findLegacySettingsSource') && main.includes('settings.json') &&
+    main.includes("app.getPath('appData')")],
+  ['Windows 任务栏：缩略图播放控件 + 用专辑封面做缩略图',
+    main.includes('setThumbarButtons') && main.includes('setThumbnailClip') &&
+    main.includes('taskbar:thumb-clip') && preload.includes('thumbClip') &&
+    renderer.includes('bindTaskbarCommands') && renderer.includes('syncThumbnailClip') &&
+    renderer.includes("taskbar:command")],
+  
+  
+  
+  
+  
+  ['任务栏点击走原生实现 + 管理员权限下发消息放行（UIPI）',
+    main.includes('taskbarInstall') && main.includes('taskbarUpdate') &&
+    main.includes('taskbarDispose') && main.includes('ensureNativeTaskbar') &&
+    main.includes("getNativeWindowHandle()") &&
+    taskbarNativeSrc.includes('ThumbBarAddButtons') &&
+    taskbarNativeSrc.includes('THBN_CLICKED') && taskbarNativeSrc.includes('WM_COMMAND') &&
+    taskbarNativeSrc.includes('SetWindowLongPtrW') &&
+    taskbarNativeSrc.includes('napi_create_threadsafe_function') &&
+    taskbarNativeSrc.includes('ChangeWindowMessageFilterEx') &&
+    taskbarNativeSrc.includes('MSGFLT_ALLOW')],
+  ['Windows AppUserModelID 与 build.appId 一致（任务栏按钮归属稳定）',
+    main.includes("setAppUserModelId('com.irix.audioplayer')") &&
+    (() => {
+      try {
+        
+        const pkg = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
+        return pkg.build && pkg.build.appId === 'com.irix.audioplayer';
+      } catch { return false; }
+    })()],
+  
+  
+  ['渲染层监听的通道都在 preload 事件白名单里',
+    (() => {
+      const block = (preload.match(/EVENT_CHANNELS = \[([\s\S]*?)\]/) || [, ''])[1];
+      const wl = [...block.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+      const listened = [...renderer.matchAll(/api\.on\('([^']+)'/g)].map((m) => m[1]);
+      return listened.length > 3 && listened.every((c) => wl.includes(c));
+    })()],
+  ['系统媒体控件（Windows SMTC / 媒体键）已接入',
+    renderer.includes('navigator.mediaSession') && renderer.includes('setActionHandler') &&
+    renderer.includes('MediaMetadata') && renderer.includes('bindMediaSession') &&
+    renderer.includes('updateMediaMetadata') && renderer.includes('setPositionState')],
+  ['窗口圆角用 setShape 区域裁剪（Win10/Win11/Linux 通用；最大化直角）',
+    main.includes('applyWindowShape') && main.includes('win.setShape') &&
+    main.includes('WINDOW_RADIUS = 12') &&
+    
+    !main.includes('transparent: true') &&
+    css.includes('html.rounded-shell body::before') && css.includes('border-radius: 12px') &&
+    
+    !css.includes('clip-path: inset(0 round')],
   ['多语言三语词条数量一致',
     (() => {
       const counts = ['zh', 'ja', 'en'].map((l) => {
@@ -111,7 +209,10 @@ const checks = [
     ''],
   ['Wine 兼容界面已打包',
     html.includes('id="selWineCompat"') && html.includes('id="statusWine"') &&
-    renderer.includes('function applyWineInfo') && css.includes('body.no-glass') &&
+    renderer.includes('function applyWineInfo') &&
+    
+    
+    css.includes('.no-glass') &&
     main.includes('wineInfoForUi')],
   ['提权警告已彻底移除（拖放功能下线后不再提示）',
     !html.includes('statusElevated') && !renderer.includes('statusElevated') &&
@@ -306,6 +407,143 @@ const checks = [
     main.includes("ipcMain.handle('cover:get'") && preload.includes("invoke('cover:get'")],
   ['音乐信息含文件路径行（多语言词条）',
     renderer.includes("tr('meta.path')") && i18nSrc.includes("'meta.path':")],
+  ['歌词独占：标题栏「排行榜」旁边的切换按钮 + 三语词条',
+    html.includes('id="btnLyricsFull"') && html.includes('data-i18n-title="tip.lyricsExclusive"') &&
+    (i18nSrc.match(/'tip\.lyricsExclusive':/g) || []).length === 3 &&
+    renderer.includes("addEventListener('click', toggleLyricsExclusive)") &&
+    renderer.includes('function bindLyricsExclusive')],
+  ['歌词独占：全窗口结构 = 封面 + 时间 + 艺术家/专辑 + 曲名 + 歌词列',
+    html.includes('id="lyricsExclusive"') && html.includes('id="lxCoverImg"') &&
+    html.includes('id="lxTime"') && html.includes('id="lxArtist"') &&
+    html.includes('id="lxTitle"') && html.includes('id="lxLyrics"')],
+  ['歌词独占：时间显示 "xx:xx/xx:xx" 且在艺术家行上面',
+    /fmtTime\(Math\.max\(0, pos\)\)\}\/\$\{fmtTime\(total\)\}/.test(renderer) &&
+    html.indexOf('id="lxTime"') < html.indexOf('id="lxArtist"') &&
+    html.indexOf('id="lxArtist"') < html.indexOf('id="lxTitle"')],
+  ['歌词独占：切歌 / 进度 / 歌词偏移 / 拖动进度都会同步',
+    renderer.includes('function syncLyricsExclusiveMeta') &&
+    renderer.includes('updateLyricsExclusiveProgress(p.position || 0)') &&
+    renderer.includes('syncLyricsExclusiveMeta(track)') &&
+    renderer.includes('updateLyricsExclusiveProgress(state.playerState.position || 0)')],
+  ['歌词独占：按钮为切换式（aria-pressed + body 类），Esc 也能关',
+    renderer.includes("btn.setAttribute('aria-pressed', String(next))") &&
+    renderer.includes("document.body.classList.toggle('lyrics-exclusive', next)") &&
+    renderer.includes("if (e.code === 'Escape' && lxState.open)")],
+  ['歌词独占：保留顶部导航栏、背景沿用设置（独占层不自绘背景、不画分隔框）',
+    css.includes('top: var(--titlebar-h);') &&
+    css.includes('body.lyrics-exclusive .layout') && css.includes('body.lyrics-exclusive .statusbar') &&
+    !/#lyricsExclusive \{[^}]*background/.test(css)],
+  ['歌词独占：独占层样式必须用 id 选择器（body 上同名类不能把整页隐藏/定位）',
+    /#lyricsExclusive \{/.test(css) && !/^\.lyrics-exclusive\s*\{/m.test(css) &&
+    !css.includes('body.lyrics-exclusive .lyrics-exclusive') &&
+    /body\.lyrics-exclusive #lyricsExclusive \{[^}]*opacity: 1/.test(css)],
+  ['歌词独占：打开时背景压暗（内容下半透明暗层，深浅主题各一套强度）',
+    html.includes('id="lxDim"') && css.includes('.lx-dim {') && css.includes('background: var(--lx-dim);') &&
+    (css.match(/--lx-dim:/g) || []).length === 2],
+  ['歌词独占：打开淡入 / 关闭淡出（终态由 body 类决定，不依赖动画）',
+    /#lyricsExclusive \{[^}]*opacity: 0/.test(css) &&
+    /#lyricsExclusive \{[^}]*visibility: hidden/.test(css) &&
+    /#lyricsExclusive \{[^}]*transition: opacity/.test(css) &&
+    css.includes('body.lyrics-exclusive #lyricsExclusive')],
+  ['歌词独占：歌词字体加粗（普通 500 / 当前行 700）',
+    /\.lx-line \{[^}]*font-weight: 500/.test(css) && /\.lx-line\.is-active \{[^}]*font-weight: 700/.test(css)],
+  ['歌词独占：艺术家-专辑放不下时左右滚动（先量溢出再加 is-marquee）',
+    html.includes('id="lxArtistText"') && renderer.includes('function layoutLyricsExclusiveArtist') &&
+    renderer.includes("classList.add('is-marquee')") && css.includes('.lx-artist.is-marquee') &&
+    css.includes('@keyframes lxArtistMarquee')],
+  ['歌词独占：切换歌词时滑动入场 + 换行平滑滚动',
+    renderer.includes("classList.add('is-enter')") && css.includes('@keyframes lxLyricsIn') &&
+    renderer.includes("behavior = smooth && !reduce ? 'smooth' : 'auto'")],
+  ['歌词独占：最底部通栏细进度条（贴边全长、scaleX 更新、不触发布局）',
+    html.includes('id="lxProgress"') && html.includes('id="lxProgressFill"') &&
+    /\.lx-progress \{[^}]*position: absolute/.test(css) &&
+    /\.lx-progress \{[^}]*bottom: 0/.test(css) &&
+    renderer.includes('function updateLyricsExclusiveBar') &&
+    renderer.includes('fill.style.transform = `scaleX(')],
+  ['歌词独占：停止播放后完全重置（封面/歌词/时间/进度条/滚动动画）',
+    renderer.includes('function resetLyricsExclusive') &&
+    renderer.includes('resetLyricsExclusive();') &&
+    renderer.includes('lxState.coverToken += 1;') &&
+    renderer.includes("$('lxTime').textContent = '00:00/00:00'") &&
+    renderer.includes("fill.style.transform = 'scaleX(0)'") &&
+    renderer.includes("artist.classList.remove('is-marquee')")],
+  ['歌词独占：底部播放控件栏结构齐全（上一曲/播放暂停/停止/下一曲/循环）',
+    html.includes('id="lxControls"') && html.includes('id="lxCtrlPrev"') &&
+    html.includes('id="lxCtrlPlay"') && html.includes('id="lxCtrlStop"') &&
+    html.includes('id="lxCtrlNext"') && html.includes('id="lxCtrlRepeat"')],
+  ['歌词独占：靠近底部（≈控件栏高度，最底部也算）立即滑出，无悬停时长',
+    !renderer.includes('LX_CONTROLS_EDGE_GAP') &&
+    renderer.includes('function lxControlsHit') &&
+    renderer.includes('window.innerHeight - e.clientY') &&
+    renderer.includes('distance >= 0 && distance <= bandH + 2') &&
+    !renderer.includes('LX_CONTROLS_SHOW_DELAY') &&
+    renderer.includes('function onLyricsExclusivePointerMove') &&
+    renderer.includes("wire('lxCtrlPrev', 'btnPrev')") &&
+    renderer.includes("wire('lxCtrlPlay', 'btnPlay')") &&
+    renderer.includes("wire('lxCtrlStop', 'btnStop')") &&
+    renderer.includes("wire('lxCtrlNext', 'btnNext')") &&
+    renderer.includes("wire('lxCtrlRepeat', 'btnRepeat')")],
+  ['歌词独占：进度条可拖动/点击（加高命中区 + 时间气泡 + 进度头）',
+    html.includes('id="lxProgressZone"') && html.includes('id="lxProgressTime"') &&
+    html.includes('id="lxProgressHead"') &&
+    /\.lx-progress-zone \{[^}]*height: 14px/.test(css) &&
+    /\.lx-progress-zone \{[^}]*cursor: pointer/.test(css) &&
+    css.includes('.lx-progress-time') && css.includes('.lx-progress-head')],
+  ['歌词独占：进度条悬停显示 xx:xx/xx:xx，拖动同步歌词并 seek',
+    renderer.includes('function bindLyricsExclusiveProgressBar') &&
+    renderer.includes('bindPointerDrag(zone') &&
+    renderer.includes('function showLyricsExclusiveBarBubble') &&
+    renderer.includes('function previewLyricsExclusiveSeek') &&
+    renderer.includes('lyricsExclusiveIndexAt(preview') === false &&
+    renderer.includes('function lyricsExclusiveIndexAt') &&
+    renderer.includes('if (!lxState.open || lxSeeking) return;') &&
+    renderer.includes('api.player.seek(target)')],
+  ['歌词独占：控件栏右下角音量控件（滑杆/静音/数字，逻辑转发主界面）',
+    html.includes('id="lxVolumeBox"') && html.includes('id="lxVolIcon"') &&
+    html.includes('id="lxVolume"') && html.includes('id="lxVolNum"') &&
+    renderer.includes('function syncLyricsExclusiveVolume') &&
+    renderer.includes('main.click();') &&
+    renderer.includes("main.dispatchEvent(new Event('input', { bubbles: true }));") &&
+    /\.lx-volume \{[^}]*position: absolute/.test(css) &&
+    /\.lx-volume \{[^}]*right: clamp\(14px, 2vw, 24px\)/.test(css) &&
+    css.includes('.lx-vol-btn[data-level="mute"]')],
+  ['歌词独占：停止后控件栏播放/暂停图标跟随复位（不能停在 ⏸）',
+    /function resetLyricsExclusive[\s\S]{0,1800}syncLyricsExclusiveControls/.test(renderer) &&
+    /function resetLyricsExclusive[\s\S]{0,1800}syncLyricsExclusiveVolume/.test(renderer) &&
+    renderer.includes('if (lxControlsShown) {')],
+  ['歌词独占：底部控件栏贴底无缝隙，背景不抢进度条事件',
+    /\.lx-controls \{[^}]*bottom: 0/.test(css) &&
+    /\.lx-controls \{[^}]*pointer-events: none/.test(css) &&
+    /\.lx-controls-inner \{[^}]*pointer-events: none/.test(css) &&
+    /\.lx-ctl \{[^}]*pointer-events: auto/.test(css) &&
+    /\.lx-volume \{[^}]*pointer-events: auto/.test(css) &&
+    renderer.includes('ctl.offsetHeight - 14 + 6') &&
+    css.includes('--lx-controls-top')],
+  ['歌词独占：滑出/滑回是 CSS 过渡（连续触发可中途反向），不是一次性动画重播',
+    /\.lx-controls \{[^}]*transition: transform/.test(css) &&
+    !/\.lx-controls \{[^}]*animation:/.test(css) &&
+    !/\.lx-left \{[^}]*animation:/.test(css) &&
+    renderer.includes("sec.classList.add('controls-open')") &&
+    renderer.includes("sec.classList.remove('controls-open')")],
+  ['歌词独占：控件栏滑出时封面/信息上移、歌词列不动（CSS 过渡，终态由类决定）',
+    /\.lx-controls \{[^}]*translateY\(calc\(100% \+ 6px\)\)/.test(css) &&
+    css.includes('#lyricsExclusive.controls-open .lx-controls') &&
+    /\.lx-left \{[^}]*transition: transform/.test(css) &&
+    css.includes('#lyricsExclusive.controls-open .lx-left') &&
+    /#lyricsExclusive\.controls-open \.lx-left \{[^}]*translateY\(calc\(-1 \* var\(--lx-controls-rise/.test(css)],
+  ['歌词独占：控件栏半透明，鼠标离开立即滑回去',
+    /\.lx-controls \{[^}]*rgba\(6, 10, 16, \.58\)/.test(css) &&
+    css.includes('backdrop-filter: blur(10px)') &&
+    renderer.includes('hideLyricsExclusiveControls();') &&
+    renderer.includes("sec.addEventListener('pointerleave'")],
+  ['歌词独占：歌词行居中高亮（程序化滚动定位 + 换行平滑滑动 + 当前行样式）',
+    renderer.includes('function paintLyricsExclusiveHighlight') &&
+    renderer.includes('active.offsetTop - box.clientHeight / 2 + active.offsetHeight / 2') &&
+    renderer.includes('box.scrollTo({ top: target, behavior })') &&
+    css.includes('.lx-line.is-active')],
+  ['歌词独占：与侧栏歌词共用同一套歌词偏移语义（正值 = 延后）',
+    renderer.includes('function updateLyricsExclusiveProgress') &&
+    /lyricsOffsetMs/.test(renderer)],
 ];
 let failed = 0;
 for (const [name, ok] of checks) {
