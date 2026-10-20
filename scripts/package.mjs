@@ -80,6 +80,9 @@ if (r.status !== 0) {
 }
 
 
+
+
+
 console.log('\n=== 产物自检 ===');
 const dist = path.join(projectRoot, 'dist');
 const unpacked = path.join(dist, 'win-unpacked');
