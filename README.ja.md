@@ -4,7 +4,7 @@
 
 > 最新バージョン：**1.0.2-extUpdate**
 
-> PC オーディオの再生チェーンを、アプリひとつで完結。WASAPI 排他から WebGL ピークメーターまで、音にこだわるヘッドホン／イヤホン環境向けにチューニングしたプレイヤー。
+> PCオーディオの再生チェーンを、これ一つで完結。WASAPI 排他から WebGL ピークメーターまで、音にこだわるヘッドホン／イヤホン環境に合わせてチューニングしたプレイヤー。
 
 **Electron** + **N-API** + **ffmpeg** の三層構成で駆動。（!!Linux 版は現状未安定のため、ビルドスクリプトなし）
 > UI：左カラムにカバー／情報／コントロール、歌詞、WebGL ピークメーター、ステータスセル。右カラムにプレイリスト＋ファイルブラウザ。既定ウィンドウは 1366×768。
@@ -18,7 +18,7 @@
 | | |
 | --- | --- |
 | **フォーマット** | ffprobe / `ffmpeg -i` で形式を判定。対応形式：mp3 m4a flac wav ogg wma。ロスレス音源も ffmpeg のデコード経路へ直結 |
-| **サウンドカード** | WASAPI 排他／共有、DirectSound、MME の 4 系統。各モードでデバイス列挙・フォーマット交渉・可用性検証まで実施 |
+| **オーディオデバイス** | WASAPI 排他／共有、DirectSound、MME の 4 系統。各モードでデバイス列挙・フォーマット交渉・可用性検証まで実施 |
 | **再生** | 進行バーのドラッグでシーク、音量（ホイールで ±5%）、ミュート（`M`）、リピートモード切替（リピートなし → リストリピート → 1 曲リピート → シャッフル） |
 | **プレイリスト** | ウィンドウ全体へのファイルドラッグ／複数選択／フォルダー、重複排除、永続化、ドラッグ並べ替え、`.playlist` の保存・読込 |
 | **歌詞** | 埋め込み歌詞 → 同ディレクトリの `.lrc` → 手動選択。現在行ハイライト＋折りたたみ可能な校正バー |
@@ -31,7 +31,7 @@
 | **全画面歌詞** | カバー＋タイトル／アーティスト／アルバム／歌詞を表示（v1.0.2-release で追加）。背景は設定のメイン背景に追従 |
 | **インストール可能な拡張** | `.xtxs` 形式の拡張をインストール可能 |
 | **拡張インターフェース ext-v2** | ライフサイクル `activate(ctx)` / `deactivate()`、高速メタデータ `readMeta()`、カバー `extractCover()`、ファイル単位の後処理 `processAudio()`、宣言型の設定／コマンド、`startup:true` による起動時アクティベート（v1.0.2-extUpdate で追加） |
-| **拡張の修正** | コンテナ系プラグインのファイル（例：`.testext` / `.ncm`）をプレイリストへ追加しても元コンテナがそのまま ffmpeg に渡り、`Invalid data found` を招く問題を修正（v1.0.2-extUpdate） |
+| **拡張機能の修正** | コンテナ系プラグインのファイル（例：`.testext` / `.ncm`）をプレイリストへ追加しても元コンテナがそのまま ffmpeg に渡り、`Invalid data found` を招く問題を修正（v1.0.2-extUpdate） |
 
 ## 拡張機能（Extensions）
 
@@ -40,12 +40,12 @@
 - **テンプレートプラグイン**：[irix-extension-template](https://github.com/sakihanaraku/irix-extension-template)（独立リポジトリ、`make-sample.mjs` / `self-test.mjs` を含む）；
 - **インターフェース検証プラグイン**：ワークスペースの `../irix-extension/qa/test-interfaces/`。起動時にポップアップを開いて項目ごとにセルフチェックし、再生可能な `.testext` テストファイルも生成可能；
 - **インターフェース範囲**：`decode` / `readMeta` / `extractCover` / `processAudio` / ライフサイクル / 宣言型の設定とコマンド / 起動時アクティベート；
-  リアルタイム DSP、任意の UI 注入、オンライン音楽ソースは現行インターフェースの範囲外。
+  リアルタイム DSP、任意の UI 注入、オンライン音楽ソースは、現行のインターフェースではサポート対象外です。
 
 ## はじめに
 
 ```powershell
-# 1. 依存関係をインストール
+# 1. 依存パッケージのインストール
 $env:ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
 npm install
 
@@ -56,13 +56,13 @@ npm run build:native
 npm start
 ```
 
-手動ビルドは不要。ビルド済みの完成品を [Release](https://github.com/sakihanaraku/irix-audio-player/releases) から落とせる。
+手動ビルドは不要。ビルド済みの完成品を [Release](https://github.com/sakihanaraku/irix-audio-player/releases) からダウンロードできます。
 
 - 動作環境：Windows 10/11 x64、Node ≥ 18；
-- **ffmpeg 同梱**（`vendor/ffmpeg/bin/`、GPLv3 ビルド。[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) を参照）。設定で ffmpeg.exe を指定するか、環境変数 `AURORA_FFMPEG` で上書き可能。最新ビルドへ差し替えるには `npm run fetch:ffmpeg`；
+- **ffmpeg 同梱**（`vendor/ffmpeg/bin/`、GPLv3 ビルド。[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) を参照）。設定で ffmpeg.exe を指定するか、`AURORA_FFMPEG`（環境変数）で上書き可能。最新ビルドへ差し替えるには `npm run fetch:ffmpeg`；
 - 探索順：明示的な設定 → `AURORA_FFMPEG` → `vendor/ffmpeg/bin` → ワークスペースのツールディレクトリ → `PATH` → 一般的なインストール先。
 
-## サウンドカード動作モード
+## オーディオデバイスの動作モード
 
 | モード | 説明 | 出力 |
 | --- | --- | --- |
@@ -98,7 +98,7 @@ npm run dist:setup        # NSIS インストーラー（保存先選択可、�
 
 ```powershell
 npm test                  # 全テスト（dist ビルド済みならパッケージ成果物の検証を含む）
-npm run test:engine       # 4 種のサウンドカードバックエンドを個別に実音確認
+npm run test:engine       # 4 種のオーディオデバイスバックエンドを個別に実音確認
 npm run test:decode       # 形式判定＋個別デコード再生＋埋め込みカバー／タグ
 npm run test:app          # メインプロセスのアプリフロー（取込／重複排除／再生／シーク／モード切替）
 npm run test:ipc          # 実 main.js + preload.js の IPC 契約
