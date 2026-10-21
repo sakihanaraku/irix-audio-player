@@ -1,6 +1,6 @@
 # iRix Audio Player
 
-[中文](README.md) | [English](README.en.md) | **日本語**
+[中文](README.zh-CN.md) | [English](README.md) | **日本語**
 
 > 最新バージョン：**1.0.2-extUpdate**
 
@@ -35,7 +35,7 @@
 ## 拡張機能（Extensions）
 
 - **インストール**：設定 → 拡張機能 → **拡張機能をインストール…**（`.xtxs` = tar パッケージ）。インストール／アンインストール／切り替え後はアプリを再起動して反映；
-- **開発ガイド**：[中文](EXTENSIONS.md) | [English](EXTENSIONS.en.md) | [日本語](EXTENSIONS.ja.md)；
+- **開発ガイド**：[中文](EXTENSIONS.zh-CN.md) | [English](EXTENSIONS.md) | [日本語](EXTENSIONS.ja.md)；
 - **テンプレートプラグイン**：[irix-extension-template](https://github.com/sakihanaraku/irix-extension-template)（独立リポジトリ、`make-sample.mjs` / `self-test.mjs` を含む）；
 - **インターフェース検証プラグイン**：ワークスペースの `../irix-extension/qa/test-interfaces/`。起動時にポップアップを開いて項目ごとにセルフチェックし、再生可能な `.testext` テストファイルも生成可能；
 - **インターフェース範囲**：`decode` / `readMeta` / `extractCover` / `processAudio` / ライフサイクル / 宣言型の設定とコマンド / 起動時アクティベート；
@@ -123,7 +123,7 @@ LICENSES/       同梱サードパーティコンポーネントのライセン�
 | ファイル | 内容 |
 | --- | --- |
 | [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) | サードパーティコンポーネントとライセンス（同梱配布する GPLv3 ffmpeg の説明を含む） |
-| [`EXTENSIONS.md`](EXTENSIONS.md) / [English](EXTENSIONS.en.md) / [日本語](EXTENSIONS.ja.md) | `.xtxs` プラグイン開発ガイド（ext-v2：マニフェスト、インターフェース、設定／コマンド、安全性、パッケージング、投稿） |
+| [`EXTENSIONS.ja.md`](EXTENSIONS.ja.md) / [中文](EXTENSIONS.zh-CN.md) / [English](EXTENSIONS.md) | `.xtxs` プラグイン開発ガイド（ext-v2：マニフェスト、インターフェース、設定／コマンド、安全性、パッケージング、投稿） |
 | [irix-extension-template](https://github.com/sakihanaraku/irix-extension-template) | そのまま複製できるプラグイン雛形（独立リポジトリ、中国語／日本語／英語 README） |
 
 ## ライセンス

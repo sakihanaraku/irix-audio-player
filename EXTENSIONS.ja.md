@@ -1,6 +1,6 @@
 # `.xtxs` プラグイン開発ガイド（コミュニティ投稿版）
 
-[中文](EXTENSIONS.md) | [English](EXTENSIONS.en.md) | **日本語**
+[中文](EXTENSIONS.zh-CN.md) | [English](EXTENSIONS.md) | **日本語**
 
 > 対象：**iRix Audio Player 1.0.2-extUpdate 以降** · 拡張インターフェース **ext**
 > ドキュメントバージョン：2026-10-21 · リポジトリ：<https://github.com/sakihanaraku/irix-audio-player>
@@ -9,7 +9,7 @@
 設定/コマンド、起動ウィンドウ、デバッグ、投稿の流れまで、すべて現行バージョンの実際の挙動に基づいて説明します。
 
 > **レイアウト**：プラグインのソースは独立したディレクトリ `irix-extension/` としてワークスペースのルート（`music-player/` と同じ階層）に置かれています。
-> 本ガイドは `music-player/EXTENSIONS.md` にあるため、以下のファイルパスは `music-player/` ルートからの相対パスです。
+> 本ガイドは `music-player/EXTENSIONS.ja.md` にあるため、以下のファイルパスは `music-player/` ルートからの相対パスです。
 > プラグイン側のパスは `../irix-extension/...` と表記します。第 11 節の投稿手順は独立した拡張リポジトリに対応します。
 
 **30 秒版**
@@ -579,7 +579,7 @@ console.log(plugin.readMeta(buf, { name: 'song.hello' }));
 
 ```bash
 node ../irix-extension/community/irix-extension-template/make-sample.mjs input.flac song.hello
-node test/extensions-guide-unit.mjs     # ドキュメント/テンプレート/実際の .xtxs インストール手順（23 項、三言語ガイドを含む）
+node test/extensions-guide-unit.mjs     # ドキュメント/テンプレート/実際の .xtxs インストール手順（25 項、三言語ガイドを含む）
 node test/extensions-api-unit.mjs       # ライフサイクル/設定/コマンド（14 項）
 node test/extensions-test-plugin-unit.mjs  # テストプラグイン（17 項）
 ```

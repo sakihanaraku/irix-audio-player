@@ -46,14 +46,19 @@ process.on('exit', cleanup);
 console.log('=== 扩展开发引导 + 社区模板校验 ===');
 try {
   
+  
+  const guidePath = path.join(projectRoot, 'EXTENSIONS.md');
+  const zhGuidePath = path.join(projectRoot, 'EXTENSIONS.zh-CN.md');
   const guide = read(guidePath);
   const guideTopics = [
     'extension.json', 'index.js', 'match', 'decode', 'passthrough',
     'meta', 'cover', 'duration', 'irix-extension-template', 'minAppVersion',
-    'SHA-256', 'CATALOG.md', '安全', '投稿', 'extensions-guide-unit',
+    'SHA-256', 'CATALOG.md', 'Security model and submission review', 'Community submission process',
+    'extensions-guide-unit',
   ];
   const missing = guideTopics.filter((t) => !guide.includes(t));
-  check('EXTENSIONS.md 存在且覆盖完整规范', guide.length > 12000 && missing.length === 0,
+  check('EXTENSIONS.md（英文默认入口）存在且覆盖完整规范',
+    guide.length > 12000 && missing.length === 0,
     missing.length ? '缺少: ' + missing.join(', ') : `长度 ${guide.length}`);
 
   
@@ -61,6 +66,21 @@ try {
   let guideManifest = null;
   try { guideManifest = JSON.parse(jsonBlocks[0]); } catch { guideManifest = null; }
   check('EXTENSIONS.md 里的 extension.json 示例可解析', !!guideManifest);
+
+  const zhGuide = read(zhGuidePath);
+  const zhTopics = [
+    'extension.json', 'index.js', 'match', 'decode', 'passthrough',
+    'meta', 'cover', 'duration', 'irix-extension-template', 'minAppVersion',
+    'SHA-256', 'CATALOG.md', '安全', '投稿', 'extensions-guide-unit',
+  ];
+  const zhMissing = zhTopics.filter((t) => !zhGuide.includes(t));
+  check('EXTENSIONS.zh-CN.md（中文版）存在且覆盖完整规范',
+    zhGuide.length > 12000 && zhMissing.length === 0,
+    zhMissing.length ? '缺少: ' + zhMissing.join(', ') : `长度 ${zhGuide.length}`);
+  const zhJsonBlocks = [...zhGuide.matchAll(/```json\n([\s\S]*?)```/g)].map((m) => m[1]);
+  let zhGuideManifest = null;
+  try { zhGuideManifest = JSON.parse(zhJsonBlocks[0]); } catch { zhGuideManifest = null; }
+  check('EXTENSIONS.zh-CN.md 里的 extension.json 示例可解析', !!zhGuideManifest);
   
   const templateManifestPath = path.join(templateDir, 'extension.json');
   const templateManifest = JSON.parse(read(templateManifestPath));
@@ -78,16 +98,21 @@ try {
     Array.isArray(templateManifest.commands) && templateManifest.commands.some((c) => c.id === 'ping'));
   check('引导内嵌示例与模板清单一致（id / extensions）',
     guideManifest && guideManifest.id === templateManifest.id &&
-    Array.isArray(guideManifest.extensions) && guideManifest.extensions.join() === templateManifest.extensions.join());
+    Array.isArray(guideManifest.extensions) && guideManifest.extensions.join() === templateManifest.extensions.join() &&
+    zhGuideManifest && zhGuideManifest.id === templateManifest.id &&
+    Array.isArray(zhGuideManifest.extensions) && zhGuideManifest.extensions.join() === templateManifest.extensions.join());
 
   
-  for (const [file, label] of [['EXTENSIONS.en.md', 'English'], ['EXTENSIONS.ja.md', 'Japanese']]) {
+  for (const [file, label, expectedManifest] of [
+    ['EXTENSIONS.zh-CN.md', 'Chinese', zhGuideManifest],
+    ['EXTENSIONS.ja.md', 'Japanese', null],
+  ]) {
     let text = '';
     try { text = read(path.join(projectRoot, file)); } catch {  }
     const fences = (text.match(/```/g) || []).length;
     const blocks = [...text.matchAll(/```json\n([\s\S]*?)```/g)].map((m) => m[1]);
-    let manifest = null;
-    try { manifest = JSON.parse(blocks[0]); } catch { manifest = null; }
+    let manifest = expectedManifest;
+    if (!manifest) { try { manifest = JSON.parse(blocks[0]); } catch { manifest = null; } }
     check(`${label} 开发指南存在且与模板示例一致`,
       text.length > 10000 && fences % 2 === 0 && manifest &&
       manifest.id === templateManifest.id &&
