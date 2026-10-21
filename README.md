@@ -1,11 +1,9 @@
 # iRix Audio Player
-基于**Electron** + **N-API** + **ffmpeg**。(!!Linux版本暂时未稳定故未有release)
+基于**Electron** + **N-API** + **ffmpeg**。(!!Linux版本暂时未稳定故未有构建脚本)
 ![架构](docs/architecture.png)
 > 界面：左栏封面 / 信息 / 控件、歌词、WebGL 峰值计与状态格；右栏播放列表 + 文件浏览器。默认窗口 1366×768。
 ![界面](docs/screenshot.png)
 ## 功能
-
-| | |
 | --- | --- |
 | **格式** | 由 ffprobe / `ffmpeg -i` 识别 目前已知支持: mp3 m4a flac wav ogg wma |
 | **声卡** | WASAPI 独占 / 共享、 DirectSound 、 MME，四种模式各自枚举设备、协商格式、探测可用性 |
@@ -18,6 +16,8 @@
 | **峰值计** | WebGL（不可用时改用 2D canvas），刻度标签 -40/-20/-10/-6/-3/0 dBFS、线性幅度映射；数值下限 **-90 dBFS**（＝静音，条宽归零），颜色跟随主题，60FPS(如果可用) |
 | **转换** | 右键选取转换 → FLAC Wave MP3 AAC Vorbis |
 | **播放排行** | 按完播次数排行 |
+| **全窗口歌词** | 显示封面 + 标题/艺术家/专辑/歌词 (v1.0.2-release 新增) |
+| **可安装扩展** | 可安装.xtxs格式的扩展 |
 ## Getting started
 
 ```powershell
@@ -90,6 +90,7 @@ native/         N-API 音频引擎（C++17）：WASAPI / DirectSound / MME / ALS
 scripts/        构建 / 打包 / 图标 / 测试媒体
 test/           引擎 解码 业务流程 IPC UI 打包等测试
 docs/           README 引用
+LICENSES/       第三方组件包含的许可证
 ```
 
 ## 文档
