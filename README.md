@@ -1,4 +1,9 @@
 # iRix Audio Player
+
+**中文** | [English](README.en.md) | [日本語](README.ja.md)
+
+> 最新版本：**1.0.2-extUpdate**
+
 基于**Electron** + **N-API** + **ffmpeg**。(!!Linux版本暂时未稳定故未有构建脚本)
 > 界面：左栏封面 / 信息 / 控件、歌词、WebGL 峰值计与状态格；右栏播放列表 + 文件浏览器。默认窗口 1366×768。
 ![界面](docs/v1.0.2-release-main.png)
@@ -23,6 +28,18 @@
 | **播放排行** | 按完播次数排行 |
 | **全窗口歌词** | 显示封面 + 标题/艺术家/专辑/歌词 (v1.0.2-release 新增) 背景跟随设置的主背景 |
 | **可安装扩展** | 可安装.xtxs格式的扩展 |
+| **扩展接口 ext-v2** | 生命周期 `activate(ctx)` / `deactivate()`、快速元数据 `readMeta()`、封面 `extractCover()`、文件级后处理 `processAudio()`、声明式设置/命令、`startup:true` 启动激活 (v1.0.2-extUpdate 新增) |
+| **扩展修复** | 修复容器插件文件（如 `.testext` / `.ncm`）加入播放列表后仍把原容器交给 ffmpeg、导致 `Invalid data found` 的问题 (v1.0.2-extUpdate) |
+
+## 扩展（Extensions）
+
+- **安装**：设置 → 扩展 → **安装扩展…**（`.xtxs` = tar 包），安装/卸载/切换后重启应用生效；
+- **开发指南**：[中文](EXTENSIONS.md) | [English](EXTENSIONS.en.md) | [日本語](EXTENSIONS.ja.md)；
+- **模板插件**：[irix-extension-template](https://github.com/sakihanaraku/irix-extension-template)（独立仓库，含 `make-sample.mjs` / `self-test.mjs`）；
+- **接口测试插件**：工作区 `../irix-extension/qa/test-interfaces/`，启动时弹窗逐项自检，并可生成可播放的 `.testext` 测试文件；
+- **接口范围**：`decode` / `readMeta` / `extractCover` / `processAudio` / 生命周期 / 声明式设置与命令 / 启动激活；
+  实时 DSP、任意 UI 注入、在线音乐源不在当前接口范围内。
+
 ## Getting started
 
 ```powershell
@@ -103,6 +120,8 @@ LICENSES/       第三方组件包含的许可证
 | 文件 | 内容 |
 | --- | --- |
 | [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) | 第三方组件与许可（含随包分发的 GPLv3 ffmpeg 说明） |
+| [`EXTENSIONS.md`](EXTENSIONS.md) / [English](EXTENSIONS.en.md) / [日本語](EXTENSIONS.ja.md) | `.xtxs` 插件开发指南（ext-v2：清单、接口、设置/命令、安全、打包、投稿） |
+| [irix-extension-template](https://github.com/sakihanaraku/irix-extension-template) | 可直接复制的插件模板（独立仓库，中/日/英 README） |
 
 ## 许可
 
