@@ -29,8 +29,8 @@
 | **変換** | 右クリックで選択項目を変換 → FLAC / Wave / MP3 / AAC / Vorbis |
 | **再生ランキング** | 完聴回数でランキング |
 | **全画面歌詞** | カバー＋タイトル／アーティスト／アルバム／歌詞を表示（v1.0.2-release で追加）。背景は設定のメイン背景に追従 |
-| **インストール可能な拡張** | `.xtxs` 形式の拡張をインストール可能 |
-| **拡張インターフェース ext-v2** | ライフサイクル `activate(ctx)` / `deactivate()`、高速メタデータ `readMeta()`、カバー `extractCover()`、ファイル単位の後処理 `processAudio()`、宣言型の設定／コマンド、`startup:true` による起動時アクティベート（v1.0.2-extUpdate で追加） |
+| **インストール可能な拡張機能** | `.xtxs` 形式の拡張機能をインストール可能 |
+| **拡張機能インターフェース ext-v2** | ライフサイクル `activate(ctx)` / `deactivate()`、高速メタデータ `readMeta()`、カバー `extractCover()`、ファイル単位の後処理 `processAudio()`、宣言型の設定／コマンド、`startup:true` による起動時アクティベート（v1.0.2-extUpdate で追加） |
 | **拡張機能の修正** | コンテナ系プラグインのファイル（例：`.testext` / `.ncm`）をプレイリストへ追加しても元コンテナがそのまま ffmpeg に渡り、`Invalid data found` を招く問題を修正（v1.0.2-extUpdate） |
 
 ## 拡張機能（Extensions）
