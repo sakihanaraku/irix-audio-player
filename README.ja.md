@@ -12,6 +12,7 @@
 ![全画面歌詞（背景カスタム可）](docs/Fullscreen-lrc.png)
 ![ライトテーマ](docs/light-scene.png)
 ![Windows の再生モード](docs/dac-settings.png)
+![アーキテクチャ](docs/architecture.png)
 
 ## 主な機能
 | | |
@@ -54,6 +55,8 @@ npm run build:native
 # 3. 起動
 npm start
 ```
+
+手動ビルドは不要。ビルド済みの完成品を [Release](https://github.com/sakihanaraku/irix-audio-player/releases) から落とせる。
 
 - 動作環境：Windows 10/11 x64、Node ≥ 18；
 - **ffmpeg 同梱**（`vendor/ffmpeg/bin/`、GPLv3 ビルド。[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) を参照）。設定で ffmpeg.exe を指定するか、環境変数 `AURORA_FFMPEG` で上書き可能。最新ビルドへ差し替えるには `npm run fetch:ffmpeg`；

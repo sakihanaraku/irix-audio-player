@@ -54,6 +54,8 @@ npm run build:native
 npm start
 ```
 
+如果不想手动编译，可以去 [Release](https://github.com/sakihanaraku/irix-audio-player/releases) 下载成品。
+
 - 环境：Windows 10/11 x64、Node ≥ 18；
 - **ffmpeg 内置**（`vendor/ffmpeg/bin/`，GPLv3 构建，见 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)）；也可在设置里指定 ffmpeg.exe、或设环境变量 `AURORA_FFMPEG` 覆盖；要换成最新构建跑 `npm run fetch:ffmpeg`；
 - 查找顺序：显式设置 → `AURORA_FFMPEG` → `vendor/ffmpeg/bin` → 工作区工具目录 → `PATH` → 常见安装位置。

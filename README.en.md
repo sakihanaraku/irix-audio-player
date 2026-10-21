@@ -10,6 +10,7 @@ Based on **Electron** + **N-API** + **ffmpeg**. (!!The Linux version is not stab
 ![Fullscreen lyrics (customizable background)](docs/Fullscreen-lrc.png)
 ![Light theme](docs/light-scene.png)
 ![Playback modes on Windows](docs/dac-settings.png)
+![Architecture](docs/architecture.png)
 
 ## Features
 | | |
@@ -52,6 +53,8 @@ npm run build:native
 # 3. Start
 npm start
 ```
+
+If you'd rather not build manually, download a ready-to-use build from [Releases](https://github.com/sakihanaraku/irix-audio-player/releases).
 
 - Environment: Windows 10/11 x64, Node ≥ 18;
 - **ffmpeg is bundled** (`vendor/ffmpeg/bin/`, GPLv3 build, see [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)); you can also specify ffmpeg.exe in settings, or override it with the `AURORA_FFMPEG` environment variable; to switch to the latest build run `npm run fetch:ffmpeg`;
