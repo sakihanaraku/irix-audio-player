@@ -12,7 +12,6 @@
 ![全画面歌詞（背景カスタム可）](docs/Fullscreen-lrc.png)
 ![ライトテーマ](docs/light-scene.png)
 ![Windows の再生モード](docs/dac-settings.png)
-![アーキテクチャ](docs/architecture.png)
 
 ## 主な機能
 | | |
