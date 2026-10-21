@@ -159,12 +159,17 @@ class Playlist {
       let meta;
       let realPath = f;
       let containerMeta = null;
+      let metaOnly = false;                     
       try {
         
         if (this.pathResolver) {
           try {
             const resolved = await this.pathResolver(f);
-            if (resolved && typeof resolved === "object" && resolved.path) {
+            if (resolved && typeof resolved === "object" && resolved.metaOnly) {
+              containerMeta = resolved.meta || null;
+              metaOnly = !!containerMeta;
+              realPath = f;
+            } else if (resolved && typeof resolved === "object" && resolved.path) {
               realPath = resolved.path;
               containerMeta = resolved.meta || null;
             } else if (typeof resolved === "string" && resolved) {
@@ -172,7 +177,11 @@ class Playlist {
             }
           } catch { realPath = f; }
         }
-        meta = await probeFile(realPath, tools);
+        
+        
+        meta = metaOnly
+          ? { ok: true, path: f, name: path.basename(f), size: 0, mtime: 0, duration: 0 }
+          : await probeFile(realPath, tools);
         
         if (containerMeta && meta && meta.ok) {
           meta = {

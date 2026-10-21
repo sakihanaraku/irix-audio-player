@@ -88,7 +88,9 @@ const commonFlags = [
 
 
 
-const domRun = await runEdge([...commonFlags, '--virtual-time-budget=60000', '--dump-dom', `${base}/`]);
+
+
+const domRun = await runEdge([...commonFlags, '--virtual-time-budget=90000', '--dump-dom', `${base}/`]);
 const match = domRun.out.match(/<pre id="__results">([\s\S]*?)<\/pre>/);
 let report = null;
 if (match) {

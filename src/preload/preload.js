@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('aurora', {
     install: () => ipcRenderer.invoke('ext:install'),
     uninstall: (id) => ipcRenderer.invoke('ext:uninstall', { id }),
     toggle: (id, enabled) => ipcRenderer.invoke('ext:toggle', { id, enabled }),
+    
+    setSetting: (id, key, value) => ipcRenderer.invoke('ext:set-setting', { id, key, value }),
+    runCommand: (id, commandId) => ipcRenderer.invoke('ext:command', { id, commandId }),
   },
   restart: () => ipcRenderer.invoke('app:restart'),
   

@@ -180,6 +180,25 @@
     listLoadCalls: 0,
     savedListPath: 'D:\\\\Music\\\\我的列表.playlist',
     maximized: false,
+    
+    extSettingCalls: [], extCommandCalls: [], extToggleCalls: [], extUninstallCalls: [],
+    extensions: [{
+      id: 'demo-ext', name: '演示扩展', version: '1.2.0',
+      description: '测试声明式设置与命令的扩展', extensions: ['demo'], author: 'community',
+      enabled: true, installed: true,
+      settings: [
+        { key: 'quality', type: 'select', label: '处理质量', description: '解码质量',
+          default: 'high', options: [{ value: 'low', label: '快速' }, { value: 'high', label: '高质量' }] },
+        { key: 'threshold', type: 'number', label: '阈值', default: 0.5, min: 0, max: 1, step: 0.1 },
+        { key: 'experimental', type: 'boolean', label: '启用实验', default: true },
+        { key: 'note', type: 'text', label: '备注', default: 'hello', placeholder: '可留空' },
+      ],
+      commands: [
+        { id: 'clear-cache', label: '清理解码缓存', description: '删除解码缓存' },
+        { id: 'ping', label: '测试命令' },
+      ],
+      values: { quality: 'high', threshold: 0.5, experimental: true, note: 'hello' },
+    }],
   };
 
   const fmtOf = () => ({
@@ -254,6 +273,40 @@
       },
     },
     ffmpeg: { set: async () => ({ ok: true }), browse: async () => ({ path: 'D:\\ffmpeg.exe', ok: true, version: 'ffmpeg 7.1' }) },
+    
+    ext: {
+      list: async () => state.extensions.map((e) => ({
+        id: e.id, name: e.name, version: e.version, description: e.description,
+        extensions: e.extensions.slice(), author: e.author, enabled: e.enabled, installed: e.installed,
+        settings: e.settings.map((s) => ({ ...s })),
+        commands: e.commands.map((c) => ({ ...c })),
+        values: { ...e.values },
+      })),
+      install: async () => ({ ok: false, canceled: true }),
+      uninstall: async (id) => {
+        state.extUninstallCalls.push(id);
+        state.extensions = state.extensions.filter((e) => e.id !== id);
+        return { ok: true };
+      },
+      toggle: async (id, enabled) => {
+        state.extToggleCalls.push([id, enabled]);
+        const e = state.extensions.find((x) => x.id === id);
+        if (e) e.enabled = !!enabled;
+        return { ok: true };
+      },
+      setSetting: async (id, key, value) => {
+        state.extSettingCalls.push([id, key, value]);
+        const e = state.extensions.find((x) => x.id === id);
+        if (e) e.values[key] = value;
+        return { ok: true, values: e ? { ...e.values } : {}, live: key !== 'note' };
+      },
+      runCommand: async (id, commandId) => {
+        state.extCommandCalls.push([id, commandId]);
+        return commandId === 'ping'
+          ? { ok: true, message: 'pong' }
+          : { ok: true, message: '已清理 3 个缓存文件' };
+      },
+    },
     
     eq: {
       get: async () => ({
@@ -1084,7 +1137,41 @@
 
       
       {
-        const allSelects = [...document.querySelectorAll('select')];
+        const extEntry = document.querySelector('#extList .ext-entry');
+        const settingRows = document.querySelectorAll('#extList .ext-setting');
+        const types = [...settingRows].map((r) => {
+          if (r.querySelector('input[type="checkbox"]')) return 'boolean';
+          if (r.querySelector('select')) return 'select';
+          if (r.querySelector('input[type="number"]')) return 'number';
+          return 'text';
+        });
+        check('扩展面板：渲染声明式设置 / 命令（ext-v2）',
+          !!extEntry && settingRows.length === 4 && types.join(',') === 'select,number,boolean,text' &&
+          document.querySelectorAll('#extList .ext-commands .btn').length === 2,
+          `rows=${settingRows.length} types=${types.join(',')}`);
+        const extSel = extEntry && extEntry.querySelector('.ext-setting select');
+        if (extSel) {
+          extSel.value = 'low';
+          extSel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        await new Promise((r) => setTimeout(r, 100));
+        check('扩展设置：修改后调用主进程并提示即时生效',
+          state.extSettingCalls.length >= 1 && state.extSettingCalls[0][1] === 'quality' &&
+          state.extSettingCalls[0][2] === 'low' && $('extStatus').textContent.includes('即时生效'),
+          `calls=${JSON.stringify(state.extSettingCalls)} status=${$('extStatus').textContent}`);
+        const extCmd = document.querySelector('#extList .ext-commands .btn');
+        if (extCmd) extCmd.click();
+        await new Promise((r) => setTimeout(r, 100));
+        check('扩展命令：点击后主进程执行并显示结果',
+          state.extCommandCalls.length === 1 && state.extCommandCalls[0][1] === 'clear-cache' &&
+          $('extStatus').textContent.includes('已清理 3 个缓存文件'),
+          JSON.stringify(state.extCommandCalls));
+      }
+
+      
+      {
+        
+        const allSelects = [...document.querySelectorAll('select')].filter((s) => !s.closest('#extList'));
         check('页面上所有 select 都升级成自定义下拉',
           allSelects.length >= 10 &&
           allSelects.every((s) => s.classList.contains('sel-native') && !!s.closest('.sel-wrap')?.querySelector('.sel-btn')),

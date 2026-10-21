@@ -14,6 +14,7 @@ const { Playlist } = require('./playlist');
 const I18N = require('../renderer/i18n');
 const { PlayerSession } = require('./player');
 const { Extensions } = require('./extensions');
+const { resolvePlayableTarget } = require('./playable');
 const nodeCrypto = require('node:crypto');
 const wine = require('./wine');
 const paths = require('./paths');
@@ -216,6 +217,7 @@ const DEFAULT_SETTINGS = {
   lyricsPicks: {},               
   lyricsOffsetMs: 0,            
   sidePanel: 'info',             
+  extensionSettings: {},         
 };
 
 let mainWindow = null;
@@ -231,6 +233,26 @@ function getExtensions() {
       dir: path.join(app.getPath('userData'), 'extensions'),
       getEnabled: () => (Array.isArray(settings.enabledExtensions) ? settings.enabledExtensions : []),
       saveEnabled: (ids) => { settings.enabledExtensions = ids; return saveSettings(); },
+      appVersion: app.getVersion(),
+      getSettings: (id) => (settings.extensionSettings && settings.extensionSettings[id]) || {},
+      persistSettings: async (id, values) => {
+        settings.extensionSettings = { ...(settings.extensionSettings || {}), [id]: values };
+        await saveSettings();
+      },
+      clearSettings: async (id) => {
+        const map = { ...(settings.extensionSettings || {}) };
+        delete map[id];
+        settings.extensionSettings = map;
+        await saveSettings();
+      },
+      log: (...args) => {
+        const text = args.map((a) => {
+          if (typeof a === 'string') return a;
+          try { return JSON.stringify(a); } catch { return String(a); }
+        }).join(' ');
+        try { console.log('[ext]', text); } catch {  }
+        try { debugLog('[ext] ' + text); } catch {  }
+      },
     });
   }
   return extensions;
@@ -240,14 +262,34 @@ function getExtensions() {
 
 
 
-async function resolvePlayablePath(filePath) {
-  let handler = null;
-  try { handler = getExtensions().findHandler(path.basename(filePath)); } catch { handler = null; }
-  if (!handler || typeof handler.decode !== "function") return filePath;
+
+
+
+
+async function resolvePlayablePath(filePath, { metaOnly = false } = {}) {
+  let rec = null;
+  try { rec = getExtensions().findRecord(path.basename(filePath)); } catch { rec = null; }
+  const handler = rec ? rec.module : null;
+  if (!handler || (typeof handler.decode !== "function" && !(metaOnly && typeof handler.readMeta === "function"))) {
+    return filePath;
+  }
   const st = await fsp.stat(filePath);
+  
+  if (metaOnly && typeof handler.readMeta === "function") {
+    try {
+      const raw = await fsp.readFile(filePath);
+      const meta = handler.readMeta(raw, { name: path.basename(filePath) });
+      if (meta && typeof meta === "object") return { metaOnly: true, meta };
+    } catch (err) {
+      debugLog("扩展 readMeta 失败，回退完整解码: " + err.message);
+    }
+  }
+  if (typeof handler.decode !== "function") return filePath;
   const cacheDir = path.join(app.getPath('userData'), 'decode-cache');
+  
+  const pluginTag = `${rec.manifest.id}@${rec.manifest.version || '0'}`;
   const key = nodeCrypto.createHash("sha1")
-    .update(filePath).update(String(st.size)).update(String(st.mtimeMs)).digest("hex").slice(0, 16);
+    .update(filePath).update(String(st.size)).update(String(st.mtimeMs)).update(pluginTag).digest("hex").slice(0, 16);
   const cached = path.join(cacheDir, key);
   const hit = ["flac", "mp3", "wav", "ogg", "m4a", "aac", "opus"].map((e) => cached + "." + e).find((p) => fs.existsSync(p));
   if (hit) {
@@ -278,9 +320,28 @@ async function resolvePlayablePath(filePath) {
     throw new Error("扩展解密失败：" + err.message);
   }
   if (!r || !r.data || r.passthrough) return filePath;
+  let outData = r.data;
+  let outExt = r.ext || "bin";
+  
+  if (typeof handler.processAudio === "function") {
+    try {
+      const pr = handler.processAudio(Buffer.from(outData), {
+        name: path.basename(filePath), ext: outExt, meta: r.meta || null, sourcePath: filePath,
+      });
+      if (Buffer.isBuffer(pr)) outData = pr;
+      else if (pr && Buffer.isBuffer(pr.data)) {
+        outData = pr.data;
+        if (pr.ext) outExt = String(pr.ext).replace(/^\./, "").toLowerCase();
+      } else {
+        throw new Error("processAudio 返回值不合法（需要 Buffer 或 { data, ext }）");
+      }
+    } catch (err) {
+      throw new Error("扩展处理音频失败：" + err.message);
+    }
+  }
   await fsp.mkdir(cacheDir, { recursive: true });
-  const out = cached + "." + (r.ext || "bin");
-  await fsp.writeFile(out, r.data);
+  const out = cached + "." + outExt;
+  await fsp.writeFile(out, outData);
   
   try {
     if (r.cover && r.cover.length > 64) await fsp.writeFile(cached + ".cover.img", r.cover);
@@ -1057,8 +1118,24 @@ function registerIpc() {
     if (coverCache.has(key)) return coverCache.get(key);
     let out = { dataUrl: null };
     
+    if (track) {
+      const src = track.path || track.playPath;
+      try {
+        const rec = src ? getExtensions().findRecord(path.basename(src)) : null;
+        if (rec && typeof rec.module.extractCover === "function") {
+          const raw = await fsp.readFile(src);
+          const cover = rec.module.extractCover(raw, { name: path.basename(src) });
+          if (Buffer.isBuffer(cover) && cover.length > 64) {
+            const mime = cover[0] === 0xff && cover[1] === 0xd8 ? "image/jpeg"
+              : cover.slice(0, 4).toString("hex") === "89504e47" ? "image/png" : "image/jpeg";
+            out = { dataUrl: "data:" + mime + ";base64," + cover.toString("base64"), bytes: cover.length, mime };
+          }
+        }
+      } catch (err) { debugLog('扩展 extractCover 失败: ' + err.message); }
+    }
     
-    if (track ? track.hasCover !== false : true) {
+    
+    if (!out.dataUrl && (track ? track.hasCover !== false : true)) {
       try {
         const cover = await extractCover(file, tools, { maxSize: 512 });
         if (cover) out = { dataUrl: cover.dataUrl, bytes: cover.bytes, mime: cover.mime };
@@ -1069,7 +1146,7 @@ function registerIpc() {
       try {
         
         const src = track.path || track.playPath;
-        if (src && getExtensions().findHandler(path.basename(src))) {
+        if (src && getExtensions().findRecord(path.basename(src))) {
           await resolvePlayablePath(src);
         }
       } catch (err) { debugLog('cover 补 sidecar 失败: ' + err.message); }
@@ -1459,8 +1536,14 @@ function registerIpc() {
     if (!track.ok) throw new Error(`该文件无法解码: ${track.error || '未知原因'}`);
     playingTrackId = trackId;                  
     
-    const playablePath = await resolvePlayablePath(track.path);
-    return player.play({ ...track, path: playablePath }, withBackendChain(settings), { startSeconds: start || 0 });
+    
+    
+    const target = resolvePlayableTarget(await resolvePlayablePath(track.path), track);
+    return player.play(
+      { ...track, path: target.path, playPath: target.path, meta: target.meta },
+      withBackendChain(settings),
+      { startSeconds: start || 0 },
+    );
   });
   ipcMain.handle('player:pause', () => player.pause());
   ipcMain.handle('player:resume', () => player.resume());
@@ -1509,6 +1592,12 @@ function registerIpc() {
     getExtensions().setEnabled(id, !!enabled);
     return { ok: true, restartRequired: true };
   });
+  
+  ipcMain.handle('ext:set-setting', async (_e, { id, key, value } = {}) => {
+    const r = await getExtensions().setSetting(id, key, value);
+    return { ok: true, values: r.values, live: r.live };
+  });
+  ipcMain.handle('ext:command', async (_e, { id, commandId } = {}) => getExtensions().runCommand(id, commandId));
   ipcMain.handle('app:restart', () => {
     setTimeout(() => { try { app.relaunch(); } catch {  } app.exit(0); }, 60);
     return { ok: true };
@@ -1516,7 +1605,10 @@ function registerIpc() {
 
   ipcMain.handle('probe:file', async (_e, { file }) => {
     let target = file;
-    try { target = await resolvePlayablePath(file); } catch { target = file; }
+    try {
+      const resolved = await resolvePlayablePath(file);
+      target = resolvePlayableTarget(resolved, { path: file, playPath: file }).path || file;
+    } catch { target = file; }
     return probeFile(target, tools);
   });
 
@@ -1720,7 +1812,8 @@ if (!gotLock) {
     await loadSettings();
     playlist = new Playlist(playlistFile());
     
-    playlist.setPathResolver(resolvePlayablePath);
+    
+    playlist.setPathResolver((f) => resolvePlayablePath(f, { metaOnly: true }));
     playlist.load();
     player = new PlayerSession({ appRoot: APP_ROOT, extraRoots: [APP_ROOT_UNPACKED, RESOURCES_DIR] });
     refreshTools();
@@ -1760,6 +1853,12 @@ if (!gotLock) {
 
     registerIpc();
     createWindow();
+    
+    if (!SELFTEST) {
+      setTimeout(() => {
+        try { getExtensions().activateStartup(); } catch {  }
+      }, 200);
+    }
 
     if (SELFTEST) {
       const { runSelfTest, getSelfTestOutputDir } = require('./selftest');
@@ -1784,6 +1883,7 @@ if (!gotLock) {
 
   app.on('will-quit', () => {
     disposeTaskbar();
+    try { extensions && extensions.shutdown(); } catch {  }
     try { rendererServer && rendererServer.close(); } catch {  }
   });
 

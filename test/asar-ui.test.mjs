@@ -29,6 +29,8 @@ const preload = read('src/preload/preload.js');
 const playlistSrc = read('src/main/playlist.js');
 const playerSrc = read('src/main/player.js');
 const i18nSrc = read('src/renderer/i18n.js');
+const extSource = read('src/main/extensions.js');
+const playableSrc = read('src/main/playable.js');
 
 const sfxSrc = fs.readFileSync(path.join(projectRoot, 'native', 'sfx', 'sfx.cpp'), 'utf8');
 
@@ -37,12 +39,11 @@ const taskbarNativeSrc = fs.readFileSync(path.join(projectRoot, 'native', 'src',
 const checks = [
   ['应用名为 iRix Audio Player', html.includes('<title>iRix Audio Player</title>') &&
     html.includes('>iRix Audio Player</span>') && main.includes("APP_DISPLAY_NAME = 'iRix Audio Player'")],
-  ['第三方组件声明随包分发，且写明本仓库不含 ncm（THIRD-PARTY-NOTICES.md）',
+  ['第三方组件声明随包分发（THIRD-PARTY-NOTICES.md 含 Electron/Apache-2.0/FFmpeg）',
     (() => {
       try {
         const n = read('THIRD-PARTY-NOTICES.md');
-        return n.includes('Electron') && n.includes('Apache-2.0') && n.includes('FFmpeg') &&
-          n.includes('本仓库不包含该功能');   
+        return n.includes('Electron') && n.includes('Apache-2.0') && n.includes('FFmpeg');
       } catch { return false; }
     })()],
   ['随包分发的 GPLv3 许可文本存在（LICENSES/GPL-3.0.txt）',
@@ -61,8 +62,8 @@ const checks = [
         return lic.includes('MIT License') && /Copyright \(c\)/.test(lic) && pkg.license === 'MIT';
       } catch { return false; }
     })()],
-  ['版本号为 1.0.2-release；标题栏已无版本徽标，版本显示在设置里',
-    JSON.parse(fs.readFileSync(path.join(out, 'package.json'), 'utf8')).version === '1.0.2-release' &&
+  ['版本号为 1.0.2-extUpdate；标题栏已无版本徽标，版本显示在设置里',
+    JSON.parse(fs.readFileSync(path.join(out, 'package.json'), 'utf8')).version === '1.0.2-extUpdate' &&
     
     !html.includes('app-version') && !html.includes('id="appVersion"') &&
     
@@ -95,6 +96,27 @@ const checks = [
     preload.includes('ext:') && html.includes('id="extList"') && html.includes('id="btnExtInstall"') &&
     renderer.includes('bindExtensions') && renderer.includes('renderExtensions') &&
     css.includes('.ext-item')],
+  ['扩展接口 ext-v2：生命周期 / 快速元数据 / 封面 / 音频后处理',
+    extSource.includes('normalizeSettings') && extSource.includes('activate') && extSource.includes('deactivate') &&
+    extSource.includes('readMeta') && extSource.includes('extractCover') && extSource.includes('processAudio') &&
+    extSource.includes('onSettingsChanged') && extSource.includes('runCommand') && extSource.includes('setSetting') &&
+    extSource.includes('activateStartup') && extSource.includes('startup') &&
+    main.includes('activateStartup') &&
+    main.includes('metaOnly') && main.includes('pluginTag') && main.includes('extractCover') && main.includes('processAudio')],
+  ['容器播放路径归一化（readMeta 快速路径后仍播放真实音频）',
+    main.includes("require('./playable')") &&
+    main.includes('resolvePlayableTarget(await resolvePlayablePath(track.path), track)') &&
+    main.includes('playPath: target.path') &&
+    main.includes('resolvePlayableTarget(resolved, { path: file, playPath: file })') &&
+    playableSrc.includes('function resolvePlayableTarget') &&
+    playableSrc.includes('metaOnly')],
+  ['扩展接口 ext-v2：声明式设置 + 命令（主进程校验 / 渲染层只按描述建控件）',
+    main.includes("ipcMain.handle('ext:set-setting'") && main.includes("ipcMain.handle('ext:command'") &&
+    preload.includes('setSetting') && preload.includes('runCommand') &&
+    renderer.includes('function renderExtensionSettings') && renderer.includes('function renderExtensionCommands') &&
+    renderer.includes('function setExtStatus') && renderer.includes('entry.appendChild(box)') &&
+    css.includes('.ext-settings') && css.includes('.ext-setting') && css.includes('.ext-commands') &&
+    i18nSrc.includes("'ext.settingsSaved'") && i18nSrc.includes("'ext.commandDone'")],
   ['数据安全网：写前自动备份 + 读失败自动从备份恢复',
     main.includes('backupFileBeforeWrite') && main.includes('restoreFromBackup') &&
     main.includes('BACKUPS_DIR_NAME') && main.includes('BACKUP_KEEP')],

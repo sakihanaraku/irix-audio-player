@@ -203,7 +203,7 @@ const argsFor = {
   probeFile: [path.join(projectRoot, 'test', 'media', 'tone-44k.flac')],
   showItem: [projectRoot],
 };
-const expectedRejects = new Set(['player.play', 'ext.uninstall', 'ext.toggle']);
+const expectedRejects = new Set(['player.play', 'ext.uninstall', 'ext.toggle', 'ext.setSetting', 'ext.runCommand']);
 
 async function walk(obj, prefix) {
   for (const [key, value] of Object.entries(obj)) {

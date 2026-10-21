@@ -1291,6 +1291,107 @@ function renderAbout() {
 
 
 
+function setExtStatus(text) {
+  const st = $('extStatus');
+  if (!st) return;
+  st.hidden = !text;
+  st.textContent = text || '';
+}
+
+
+function renderExtensionSettings(entry, item) {
+  const settings = Array.isArray(item.settings) ? item.settings : [];
+  if (!settings.length) return;
+  const box = document.createElement('div');
+  box.className = 'ext-settings';
+  const values = item.values || {};
+  for (const desc of settings) {
+    const row = document.createElement('label');
+    row.className = 'ext-setting';
+    const label = document.createElement('span');
+    label.className = 'ext-setting-label';
+    label.textContent = desc.label || desc.key;
+    if (desc.description) label.title = desc.description;
+    const ctrl = document.createElement('span');
+    ctrl.className = 'ext-setting-control';
+    const current = values[desc.key] !== undefined ? values[desc.key] : desc.default;
+    let el;
+    if (desc.type === 'boolean') {
+      el = document.createElement('input');
+      el.type = 'checkbox';
+      el.checked = !!current;
+    } else if (desc.type === 'select') {
+      el = document.createElement('select');
+      for (const opt of desc.options || []) {
+        const o = document.createElement('option');
+        o.value = opt.value;
+        o.textContent = opt.label || opt.value;
+        if (String(current) === String(opt.value)) o.selected = true;
+        el.appendChild(o);
+      }
+    } else if (desc.type === 'number') {
+      el = document.createElement('input');
+      el.type = 'number';
+      if (desc.min !== undefined) el.min = String(desc.min);
+      if (desc.max !== undefined) el.max = String(desc.max);
+      if (desc.step !== undefined) el.step = String(desc.step);
+      el.value = String(current ?? 0);
+    } else {
+      el = document.createElement('input');
+      el.type = 'text';
+      el.value = String(current ?? '');
+      if (desc.placeholder) el.placeholder = desc.placeholder;
+    }
+    const commit = async () => {
+      const value = el.type === 'checkbox' ? el.checked : el.value;
+      try {
+        const r = await api.ext.setSetting(item.id, desc.key, value);
+        if (r && r.values) Object.assign(values, r.values);
+        if (r && r.live) setExtStatus(tr('ext.settingsSaved'));
+        else markRestartNeeded();
+      } catch (err) {
+        setExtStatus(tr('ext.settingFailed', { msg: String(err?.message || err) }));
+      }
+    };
+    el.addEventListener('change', commit);
+    ctrl.appendChild(el);
+    row.append(label, ctrl);
+    box.appendChild(row);
+  }
+  
+  
+  entry.appendChild(box);
+}
+
+
+function renderExtensionCommands(entry, item) {
+  const commands = Array.isArray(item.commands) ? item.commands : [];
+  if (!commands.length) return;
+  const box = document.createElement('div');
+  box.className = 'ext-commands';
+  for (const cmd of commands) {
+    const btn = document.createElement('button');
+    btn.className = 'btn mini';
+    btn.textContent = cmd.label || cmd.id;
+    if (cmd.description) btn.title = cmd.description;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        const r = await api.ext.runCommand(item.id, cmd.id);
+        if (r && r.ok) setExtStatus(tr('ext.commandDone', { msg: r.message || '' }));
+        else setExtStatus(tr('ext.commandFailed', { msg: (r && r.error) || '' }));
+      } catch (err) {
+        setExtStatus(tr('ext.commandFailed', { msg: String(err?.message || err) }));
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    box.appendChild(btn);
+  }
+  entry.appendChild(box);
+}
+
+
 async function renderExtensions() {
   const box = $('extList');
   if (!box) return;
@@ -1306,6 +1407,8 @@ async function renderExtensions() {
     return;
   }
   for (const item of list) {
+    const entry = document.createElement("div");
+    entry.className = "ext-entry";
     const row = document.createElement("div");
     row.className = "ext-item";
     const mainEl = document.createElement("div");
@@ -1338,7 +1441,10 @@ async function renderExtensions() {
       } catch {  }
     });
     row.append(mainEl, sw, del);
-    box.appendChild(row);
+    entry.appendChild(row);
+    renderExtensionSettings(entry, item);
+    renderExtensionCommands(entry, item);
+    box.appendChild(entry);
   }
 }
 

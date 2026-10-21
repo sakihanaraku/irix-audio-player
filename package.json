@@ -1,7 +1,7 @@
 {
   "name": "irix-audio-player",
   "productName": "iRix Audio Player",
-  "version": "1.0.2-release",
+  "version": "1.0.2-extUpdate",
   "description": "iRix Audio Player —— Electron + N-API 原生音频引擎 + ffmpeg 解码（Windows: WASAPI/DSound/MME，Linux: ALSA）",
   "main": "src/main/main.js",
   "author": "sakihanaraku",
@@ -29,6 +29,7 @@
     "dist:dir": "node scripts/package.mjs --target dir",
     "dist:nsis": "node scripts/package.mjs --target nsis",
     "dist:sfx": "node scripts/build-sfx.mjs",
+    "pack:template-plugin": "node scripts/build-template-plugin.mjs",
     "dist:linux": "node scripts/package-linux.mjs",
     "dist:linux:dir": "node scripts/package-linux.mjs --target dir",
     "make:icons": "python scripts/make-icon.py && python scripts/make-linux-icons.py",
