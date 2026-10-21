@@ -10,7 +10,6 @@ Based on **Electron** + **N-API** + **ffmpeg**. (!!The Linux version is not stab
 ![Fullscreen lyrics (customizable background)](docs/Fullscreen-lrc.png)
 ![Light theme](docs/light-scene.png)
 ![Playback modes on Windows](docs/dac-settings.png)
-![Architecture](docs/architecture.png)
 
 ## Features
 | | |
