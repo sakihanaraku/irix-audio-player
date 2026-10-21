@@ -3,6 +3,7 @@
 > 界面：左栏封面 / 信息 / 控件、歌词、WebGL 峰值计与状态格；右栏播放列表 + 文件浏览器。默认窗口 1366×768。
 ![界面](docs/v1.0.2-release-main.png)
 ![全屏歌词（可自定义背景）](docs/Fullscreen-lrc.png)
+![浅色](docs/light-scene.png)
 ![Windows下的播放模式](docs/dac-settings.png)
 ![架构](docs/architecture.png)
 
