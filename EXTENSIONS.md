@@ -19,7 +19,7 @@
 2. 改 `extension.json`（id/name/version/extensions）和 `index.js`（你的容器格式）；
 3. `tar -cf my-plugin.xtxs -C 你的插件目录 .`；
 4. 应用 → 设置 → 扩展 → 安装扩展… → 重启；
-5. 测试通过后向扩展仓库提 PR（源码放 `irix-extension/community/<id>/`，或提交 `.xtxs` 目录条目）。
+5. 测试通过后向扩展仓库提 Pull Request（源码放 `irix-extension/community/<id>/`，或提交 `.xtxs` 目录条目）。
 
 ---
 
@@ -474,7 +474,7 @@ onSettingsChanged(values, key) { /* 用户改了设置 */ }
 - [ ] **无远程代码加载**：不 `eval` / `new Function` / 下载并执行代码；
 - [ ] **最小权限**：不写插件目录之外的路径（缓存由应用负责），不修改用户音乐文件；
 - [ ] **网络可选且声明**：默认不发网络请求；必须时在 README 写清楚；
-- [ ] **无子进程**：不要 `child_process` 调外部程序；确有必要请在 PR 说明原因；
+- [ ] **无子进程**：不要 `child_process` 调外部程序；确有必要请在 Pull Request 说明原因；
 - [ ] **无遥测/收集隐私**：不上传用户路径、文件名、音频内容；
 - [ ] **健壮**：对截断/伪造/超大文件不崩溃、不 OOM（至少检查长度与偏移）；
 - [ ] **性能**：同步钩子单文件尽量 < 1 秒（大文件另议）；
@@ -612,14 +612,14 @@ tar -cf dist/iRix-Extension-test-interfaces-1.0.0.xtxs -C ..\irix-extension\qa\t
    - `LICENSE`（可选，推荐）
    - `test/` 或 `fixtures/`（可选：合成样本/单测；**不要提交受版权保护的音乐文件**）
 3. 本地按第 9 节打包、按第 10 节安装验证；
-4. 提 PR，标题：`[extension] <name> v<version>`；
-5. PR 描述附：插件 id/版本/支持后缀/声明的设置与命令、测试过的应用版本与平台、
+4. 提 Pull Request，标题：`[extension] <name> v<version>`；
+5. Pull Request 描述附：插件 id/版本/支持后缀/声明的设置与命令、测试过的应用版本与平台、
    测试文件生成方法、`.xtxs` 的 SHA-256。
 
 ### 11.2 方式 B：自行托管发布，提交目录条目
 
 1. 在你的仓库 GitHub Releases 发布 `.xtxs`（附 SHA-256）；
-2. 提 PR，在 `irix-extension/community/CATALOG.md` 增加一行（格式见该文件）；
+2. 提 Pull Request，在 `irix-extension/community/CATALOG.md` 增加一行（格式见该文件）；
 3. 维护者下载 → 校验 SHA-256 → 安装 → 实际播放/设置/命令验证后合并。
 
 ### 11.3 版本与更新
@@ -632,8 +632,8 @@ tar -cf dist/iRix-Extension-test-interfaces-1.0.0.xtxs -C ..\irix-extension\qa\t
 
 ### 11.4 审查结果
 
-- 通过：合并 PR，维护者打 `.xtxs` 附到 Release/目录；
-- 需修改：PR 里写明（安全、性能、清单、文档等）；
+- 通过：合并 Pull Request，维护者打 `.xtxs` 附到 Release/目录；
+- 需修改：Pull Request 里写明（安全、性能、清单、文档等）；
 - 不接受：远程代码、原生模块、版权内容、恶意行为，或超出当前接口范围的插件。
 
 ---
@@ -702,7 +702,7 @@ Build / contribute:
 tar -cf iRix-Extension-my-plugin-1.0.0.xtxs -C ../irix-extension/community/my-plugin .
 node test/extensions-guide-unit.mjs
 node test/extensions-api-unit.mjs
-# PR: add irix-extension/community/<id>/{extension.json,index.js,README.md}
+# Pull Request: add irix-extension/community/<id>/{extension.json,index.js,README.md}
 ```
 
 The runnable template lives at `irix-extension/community/irix-extension-template/` (workspace sibling of `music-player/`).

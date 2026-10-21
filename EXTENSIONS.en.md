@@ -19,7 +19,7 @@ to settings/commands, startup windows, debugging and the submission process — 
 2. Edit `extension.json` (id/name/version/extensions) and `index.js` (your container format);
 3. `tar -cf my-plugin.xtxs -C your-plugin-dir .`;
 4. App → Settings → Extensions → Install extension… → restart;
-5. Once tests pass, open a PR against the extension repository (put the source under `irix-extension/community/<id>/`, or submit a `.xtxs` catalog entry).
+5. Once tests pass, open a Pull Request against the extension repository (put the source under `irix-extension/community/<id>/`, or submit a `.xtxs` catalog entry).
 
 ---
 
@@ -474,7 +474,7 @@ Submission review checklist:
 - [ ] **No remote code loading**: no `eval` / `new Function` / downloading and executing code;
 - [ ] **Least privilege**: do not write paths outside the extension directory (caching is the app's responsibility), do not modify the user's music files;
 - [ ] **Network optional and declared**: no network requests by default; if unavoidable, state it clearly in the README;
-- [ ] **No subprocesses**: do not use `child_process` to call external programs; if truly necessary, explain why in the PR;
+- [ ] **No subprocesses**: do not use `child_process` to call external programs; if truly necessary, explain why in the Pull Request;
 - [ ] **No telemetry/privacy collection**: do not upload user paths, file names, or audio content;
 - [ ] **Robust**: do not crash or OOM on truncated/forged/oversized files (at minimum check lengths and offsets);
 - [ ] **Performance**: synchronous hooks should take < 1 second per file where possible (large files are a separate matter);
@@ -612,14 +612,14 @@ Extension source repository: the standalone workspace directory `irix-extension/
    - `LICENSE` (optional, recommended)
    - `test/` or `fixtures/` (optional: synthetic samples/unit tests; **do not commit copyright-protected music files**)
 3. Package locally per Section 9 and verify installation per Section 10;
-4. Open a PR titled: `[extension] <name> v<version>`;
-5. In the PR description include: extension id/version/supported suffixes/declared settings and commands, the tested app version and platform,
+4. Open a Pull Request titled: `[extension] <name> v<version>`;
+5. In the Pull Request description include: extension id/version/supported suffixes/declared settings and commands, the tested app version and platform,
    how the test files were generated, and the SHA-256 of the `.xtxs`.
 
 ### 11.2 Option B: self-hosted release, submit a catalog entry
 
 1. Publish the `.xtxs` in your repository's GitHub Releases (with SHA-256);
-2. Open a PR adding one line to `irix-extension/community/CATALOG.md` (format in that file);
+2. Open a Pull Request adding one line to `irix-extension/community/CATALOG.md` (format in that file);
 3. Maintainers download → verify SHA-256 → install → verify actual playback/settings/commands, then merge.
 
 ### 11.3 Versions and updates
@@ -632,8 +632,8 @@ Extension source repository: the standalone workspace directory `irix-extension/
 
 ### 11.4 Review outcome
 
-- Approved: merge the PR; maintainers build the `.xtxs` and attach it to a Release/catalog;
-- Needs changes: noted in the PR (security, performance, manifest, docs, etc.);
+- Approved: merge the Pull Request; maintainers build the `.xtxs` and attach it to a Release/catalog;
+- Needs changes: noted in the Pull Request (security, performance, manifest, docs, etc.);
 - Not accepted: remote code, native modules, copyrighted content, malicious behavior, or extensions beyond the current interface scope.
 
 ---
@@ -702,7 +702,7 @@ Build / contribute:
 tar -cf iRix-Extension-my-plugin-1.0.0.xtxs -C ../irix-extension/community/my-plugin .
 node test/extensions-guide-unit.mjs
 node test/extensions-api-unit.mjs
-# PR: add irix-extension/community/<id>/{extension.json,index.js,README.md}
+# Pull Request: add irix-extension/community/<id>/{extension.json,index.js,README.md}
 ```
 
 The runnable template lives at `irix-extension/community/irix-extension-template/` (workspace sibling of `music-player/`).

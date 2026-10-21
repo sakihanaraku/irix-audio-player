@@ -19,7 +19,7 @@
 2. `extension.json`（id/name/version/extensions）と `index.js`（自分のコンテナ形式）を変更。
 3. `tar -cf my-plugin.xtxs -C プラグインのディレクトリ .`。
 4. アプリ → 設定 → 拡張機能 → 拡張機能をインストール… → 再起動。
-5. テストが通ったら拡張リポジトリへ PR を提出（ソースは `irix-extension/community/<id>/` に置くか、`.xtxs` のカタログ項目を提出）。
+5. テストが通ったら拡張リポジトリへ Pull Request を提出（ソースは `irix-extension/community/<id>/` に置くか、`.xtxs` のカタログ項目を提出）。
 
 ---
 
@@ -474,7 +474,7 @@ Electron のメインプロセス内で、プラグインは `require('electron'
 - [ ] **リモートコードの読み込みなし**：`eval` / `new Function` / コードのダウンロードと実行をしない。
 - [ ] **最小権限**：プラグインディレクトリの外に書き込まない（キャッシュはアプリが担当）、ユーザーの音楽ファイルを変更しない。
 - [ ] **ネットワークは任意かつ宣言**：デフォルトでネットワークリクエストを送らない。必要な場合は README に明記。
-- [ ] **子プロセスなし**：`child_process` で外部プログラムを呼ばない。どうしても必要な場合は PR で理由を説明。
+- [ ] **子プロセスなし**：`child_process` で外部プログラムを呼ばない。どうしても必要な場合は Pull Request で理由を説明。
 - [ ] **テレメトリ/プライバシー収集なし**：ユーザーのパス、ファイル名、音声内容をアップロードしない。
 - [ ] **堅牢**：切り詰め/偽造/巨大ファイルでもクラッシュせず OOM しない（最低限、長さとオフセットを検証）。
 - [ ] **性能**：同期フックは 1 ファイルあたり概ね 1 秒未満（大きなファイルは別途）。
@@ -612,14 +612,14 @@ tar -cf dist/iRix-Extension-test-interfaces-1.0.0.xtxs -C ..\irix-extension\qa\t
    - `LICENSE`（任意、推奨）
    - `test/` または `fixtures/`（任意：合成サンプル/単体テスト。**著作権保護された音楽ファイルはコミットしないでください**）
 3. ローカルで第 9 節に従ってパッケージ化し、第 10 節に従ってインストール検証。
-4. PR を提出、タイトル：`[extension] <name> v<version>`。
-5. PR の説明に添付：プラグインの id/バージョン/対応拡張子/宣言した設定とコマンド、テストしたアプリのバージョンとプラットフォーム、
+4. Pull Request を提出、タイトル：`[extension] <name> v<version>`。
+5. Pull Request の説明に添付：プラグインの id/バージョン/対応拡張子/宣言した設定とコマンド、テストしたアプリのバージョンとプラットフォーム、
    テストファイルの生成方法、`.xtxs` の SHA-256。
 
 ### 11.2 方法 B：自分でホストして公開し、カタログ項目を提出
 
 1. 自分のリポジトリの GitHub Releases で `.xtxs` を公開（SHA-256 を添付）。
-2. PR を提出し、`irix-extension/community/CATALOG.md` に 1 行追加（形式はそのファイルを参照）。
+2. Pull Request を提出し、`irix-extension/community/CATALOG.md` に 1 行追加（形式はそのファイルを参照）。
 3. メンテナーがダウンロード → SHA-256 を検証 → インストール → 実際の再生/設定/コマンドを検証してからマージ。
 
 ### 11.3 バージョンと更新
@@ -632,8 +632,8 @@ tar -cf dist/iRix-Extension-test-interfaces-1.0.0.xtxs -C ..\irix-extension\qa\t
 
 ### 11.4 レビュー結果
 
-- 承認：PR をマージし、メンテナーが `.xtxs` を作成して Release/カタログに添付。
-- 修正が必要：PR に記載（セキュリティ、性能、マニフェスト、ドキュメントなど）。
+- 承認：Pull Request をマージし、メンテナーが `.xtxs` を作成して Release/カタログに添付。
+- 修正が必要：Pull Request に記載（セキュリティ、性能、マニフェスト、ドキュメントなど）。
 - 受け付け不可：リモートコード、ネイティブモジュール、著作権コンテンツ、悪意ある挙動、または現在のインターフェース範囲を超えるプラグイン。
 
 ---
@@ -702,7 +702,7 @@ module.exports = {
 tar -cf iRix-Extension-my-plugin-1.0.0.xtxs -C ../irix-extension/community/my-plugin .
 node test/extensions-guide-unit.mjs
 node test/extensions-api-unit.mjs
-# PR: add irix-extension/community/<id>/{extension.json,index.js,README.md}
+# Pull Request: add irix-extension/community/<id>/{extension.json,index.js,README.md}
 ```
 
 実行可能なテンプレートは `irix-extension/community/irix-extension-template/`（`music-player/` のワークスペース隣接ディレクトリ）にあります。
