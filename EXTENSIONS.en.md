@@ -65,14 +65,14 @@ The player uses ffmpeg to decode ordinary audio (FLAC/WAV/MP3/…). Extensions l
 
 ```
 deepseek-harness/
-├── music-player/                       ← 主应用（本指南所在）
-└── irix-extension/                     ← 插件源码（独立目录）
+├── music-player/                       ← main app (this guide lives here)
+└── irix-extension/                     ← extension source (standalone directory)
     └── community/
-        └── irix-extension-template/    ← 复制这个目录，改成你自己的插件
-            ├── extension.json          ← 清单（必须有）
-            ├── index.js                ← 入口模块（必须有，默认 index.js）
-            ├── README.md               ← 插件说明（社区投稿必须有）
-            └── make-sample.mjs         ← 模板自带：生成测试用 .hello 文件
+        └── irix-extension-template/    ← copy this directory and make it your own plugin
+            ├── extension.json          ← manifest (required)
+            ├── index.js                ← entry module (required, defaults to index.js)
+            ├── README.md               ← plugin docs (required for community submissions)
+            └── make-sample.mjs         ← shipped with the template: generates a test .hello file
 ```
 
 After copying, change these first:
@@ -93,7 +93,7 @@ After copying, change these first:
   "id": "irix-extension-template",
   "name": "Irix Extension Template",
   "version": "1.0.0",
-  "description": "iRix Audio Player 扩展模板：示例容器 .hello → 可播放音频，包含 decode/readMeta/extractCover/processAudio/生命周期/声明式设置/命令的完整写法。",
+  "description": "iRix Audio Player extension template: sample container .hello → playable audio, with complete implementations of decode/readMeta/extractCover/processAudio/lifecycle/declarative settings/commands.",
   "entry": "index.js",
   "extensions": ["hello"],
   "minAppVersion": "1.0.2-extUpdate",
@@ -103,16 +103,16 @@ After copying, change these first:
     {
       "key": "passthroughUnknown",
       "type": "boolean",
-      "label": "未知音频头时原样放行",
+      "label": "Pass through unchanged when the audio header is unknown",
       "default": false,
-      "description": "识别不出真实格式时，不返回音频而是 passthrough（交给播放器原文件处理）"
+      "description": "When the real format cannot be detected, return passthrough instead of audio (let the player handle the original file)"
     }
   ],
   "commands": [
     {
       "id": "ping",
-      "label": "测试命令",
-      "description": "返回插件 id/版本，验证命令接口是否接通"
+      "label": "Test command",
+      "description": "Returns the plugin id/version to verify that the command interface is connected"
     }
   ]
 }
@@ -123,11 +123,11 @@ After copying, change these first:
 ```js
 'use strict';
 
-// 示例容器格式：
+// Sample container format:
 //   [0, 8)         magic "HELLOXTS"
-//   [8, 12)        元数据 JSON 长度 N（uint32 LE）
-//   [12, 12+N)     元数据 JSON：{ title, artist, album, duration }（duration 单位毫秒）
-//   [12+N, ...)    原始音频数据（FLAC/MP3/WAV/OGG/...）
+//   [8, 12)        metadata JSON length N (uint32 LE)
+//   [12, 12+N)     metadata JSON: { title, artist, album, duration } (duration in milliseconds)
+//   [12+N, ...)    raw audio data (FLAC/MP3/WAV/OGG/...)
 
 const MAGIC = Buffer.from('HELLOXTS');
 const MAX_HEADER = 64 * 1024;
@@ -144,11 +144,11 @@ function detectExt(buf) {
 }
 
 function splitContainer(buffer) {
-  if (!Buffer.isBuffer(buffer) || buffer.length < 12) throw new Error('文件太短，不是 HELLOXTS 容器');
-  if (!buffer.subarray(0, 8).equals(MAGIC)) throw new Error('魔数不匹配（不是 .hello 容器）');
+  if (!Buffer.isBuffer(buffer) || buffer.length < 12) throw new Error('File too short, not a HELLOXTS container');
+  if (!buffer.subarray(0, 8).equals(MAGIC)) throw new Error('Magic does not match (not a .hello container)');
   const headLen = buffer.readUInt32LE(8);
   if (headLen < 2 || headLen > MAX_HEADER || 12 + headLen > buffer.length) {
-    throw new Error('容器头部长度不合法');
+    throw new Error('Invalid container header length');
   }
   let meta = null;
   try {
@@ -158,7 +158,7 @@ function splitContainer(buffer) {
         title: String(j.title || ''),
         artist: String(j.artist || ''),
         album: String(j.album || ''),
-        duration: Number(j.duration) || 0,   // 毫秒
+        duration: Number(j.duration) || 0,   // milliseconds
       };
     }
   } catch { meta = null; }
@@ -169,16 +169,16 @@ let currentSettings = { passthroughUnknown: false };
 
 function decode(buffer) {
   const { meta, data } = splitContainer(buffer);
-  if (!data.length) throw new Error('容器里没有音频数据');
+  if (!data.length) throw new Error('No audio data in the container');
   const ext = detectExt(data);
   if (!ext && currentSettings.passthroughUnknown) {
     return { data: Buffer.alloc(0), ext: 'bin', meta, passthrough: true };
   }
-  if (!ext) throw new Error('无法识别容器里的音频格式');
+  if (!ext) throw new Error('Cannot detect the audio format inside the container');
   return { data, ext, meta, passthrough: false };
 }
 
-/** 加入列表快速路径：只读元数据，不复制音频 */
+/** Fast path for adding to the list: read metadata only, do not copy audio */
 function readMeta(buffer) {
   try { return splitContainer(buffer).meta; } catch { return null; }
 }
@@ -191,7 +191,7 @@ module.exports = {
     currentSettings = { ...ctx.settings };
     ctx.log('irix-extension-template activated', ctx.extension.version);
   },
-  deactivate() { /* 释放资源 */ },
+  deactivate() { /* release resources */ },
   onSettingsChanged(values) { currentSettings = { ...values }; },
   commands: {
     async ping(ctx) { return `irix-extension-template v${ctx.extension.version} OK`; },
@@ -205,10 +205,10 @@ module.exports = {
 ### 2.4 Packaging, installing, verifying
 
 ```powershell
-# 1) 打包（.xtxs 就是 tar 包；-C 指定源目录，. 表示把目录内容放在包根）
+# 1) Package (.xtxs is just a tar archive; -C sets the source directory, . puts the directory contents at the archive root)
 tar -cf iRix-Extension-irix-extension-template-1.0.0.xtxs -C ..\irix-extension\community\irix-extension-template .
 
-# 2) 检查包内容（应看到 extension.json / index.js / README.md）
+# 2) Inspect the package contents (you should see extension.json / index.js / README.md)
 tar -tf iRix-Extension-irix-extension-template-1.0.0.xtxs
 ```
 
@@ -277,10 +277,10 @@ Persisted setting values are stored under `extensionSettings.<id>` in `settings.
 {
   key: 'quality',                 // ^[a-z0-9][a-z0-9._-]{0,63}$
   type: 'select',                 // text | number | boolean | select
-  label: '处理质量',               // 最长 80 字符
-  description: '可选说明',         // 最长 240 字符
+  label: 'Processing quality',     // up to 80 characters
+  description: 'Optional notes',   // up to 240 characters
   default: 'high',
-  options: [{ value: 'low', label: '快速' }, { value: 'high', label: '高质量' }]
+  options: [{ value: 'low', label: 'Fast' }, { value: 'high', label: 'High quality' }]
 }
 ```
 
@@ -295,7 +295,7 @@ When the user changes a setting, `onSettingsChanged(values, key)` is called; if 
 ### 4.2 `commands` command buttons
 
 ```js
-{ id: 'clear-cache', label: '清理解码缓存', description: '删除本扩展的解码缓存' }
+{ id: 'clear-cache', label: 'Clear decode cache', description: 'Delete the decode cache for this extension' }
 ```
 
 Export a function with the same name from the module:
@@ -304,7 +304,7 @@ Export a function with the same name from the module:
 module.exports = {
   commands: {
     async 'clear-cache'(ctx) {
-      return '已清理 3 个缓存文件';   // 返回值显示在设置页状态行
+      return 'Cleared 3 cache files';   // the return value is shown on the settings page status line
     },
   },
 };
@@ -325,26 +325,26 @@ Node built-in modules such as `node:fs` / `node:crypto`.
 
 ```js
 module.exports = {
-  id: 'my-plugin',                  // 可选，与 manifest.id 一致
-  match: /\.xyz$/i,                 // 必须：RegExp（对文件名 basename 测试）
+  id: 'my-plugin',                  // optional, must match manifest.id
+  match: /\.xyz$/i,                 // required: RegExp (tested against the file name basename)
 
-  decode(buffer, { name }) {        // 容器解码，必须同步
+  decode(buffer, { name }) {        // container decoding, must be synchronous
     return {
-      data: Buffer,                 // 解码出的原始音频
-      ext: 'flac',                  // 真实格式（不带点）
-      meta: { title, artist, album, duration }, // 可选，duration 单位毫秒
-      cover: Buffer,                // 可选：JPEG/PNG 封面
-      passthrough: false,           // 可选：true = 原样交给播放器
+      data: Buffer,                 // decoded raw audio
+      ext: 'flac',                  // real format (no dot)
+      meta: { title, artist, album, duration }, // optional, duration in milliseconds
+      cover: Buffer,                // optional: JPEG/PNG cover
+      passthrough: false,           // optional: true = hand the original file to the player
     };
   },
 
-  readMeta(buffer, { name }) { /* 可选：只读元数据，返回 meta 或 null */ },
-  extractCover(buffer, { name }) { /* 可选：返回封面 Buffer 或 null */ },
-  processAudio(data, ctx) { /* 可选：返回 Buffer 或 { data, ext } */ },
-  activate(ctx) { /* 可选：模块加载完成 */ },
-  deactivate() { /* 可选：卸载/禁用/退出 */ },
-  onSettingsChanged(values, key) { /* 可选：设置变更 */ },
-  commands: { /* 可选：与 manifest.commands 对应 */ },
+  readMeta(buffer, { name }) { /* optional: read metadata only, return meta or null */ },
+  extractCover(buffer, { name }) { /* optional: return a cover Buffer or null */ },
+  processAudio(data, ctx) { /* optional: return a Buffer or { data, ext } */ },
+  activate(ctx) { /* optional: module finished loading */ },
+  deactivate() { /* optional: unload/disable/exit */ },
+  onSettingsChanged(values, key) { /* optional: a setting changed */ },
+  commands: { /* optional: corresponds to manifest.commands */ },
 };
 ```
 
@@ -406,12 +406,12 @@ activate(ctx) {
   // ctx = {
   //   appVersion: '1.0.2-extUpdate',
   //   extension: { id, name, version, dir },
-  //   settings: { ...默认值 + 已保存值 },
-  //   log: (...args) => void,   // 主进程日志
+  //   settings: { ...defaults + saved values },
+  //   log: (...args) => void,   // main-process log
   // }
 }
-deactivate() { /* 释放资源 */ }
-onSettingsChanged(values, key) { /* 用户改了设置 */ }
+deactivate() { /* release resources */ }
+onSettingsChanged(values, key) { /* the user changed a setting */ }
 ```
 
 - `activate` may return a Promise (the app does not wait for it to finish; async failures are only logged and do not affect other features);
@@ -512,7 +512,7 @@ Official extension source is kept outside the repository at `../extensions-src/<
 
 ```bash
 node scripts/build-extension.mjs
-# 输出：dist/iRix-Extension-<id>-<version>.xtxs
+# Output: dist/iRix-Extension-<id>-<version>.xtxs
 ```
 
 Community extensions are packaged directly inside `../irix-extension/community/<id>/` following 9.1.
@@ -523,8 +523,8 @@ The main repository provides a packaging script for the template extension (outp
 
 ```bash
 node scripts/build-template-plugin.mjs
-# 输出：dist/iRix-Extension-irix-extension-template-1.0.0.xtxs
-# 或：npm run pack:template-plugin
+# Output: dist/iRix-Extension-irix-extension-template-1.0.0.xtxs
+# Or: npm run pack:template-plugin
 ```
 
 Installation steps are the same as Section 10: Settings → Extensions → Install extension… → choose the `.xtxs` → restart.
@@ -579,9 +579,9 @@ Reference: `test/ncm-ext-unit.mjs` (22 round-trip tests for the official NCM ext
 
 ```bash
 node ../irix-extension/community/irix-extension-template/make-sample.mjs input.flac song.hello
-node test/extensions-guide-unit.mjs     # 文档/模板/真实 .xtxs 安装流程（23 项，含三语指南）
-node test/extensions-api-unit.mjs       # 生命周期/设置/命令（14 项）
-node test/extensions-test-plugin-unit.mjs  # 测试插件（17 项）
+node test/extensions-guide-unit.mjs     # docs/template/real .xtxs install flow (23 cases, includes the trilingual guides)
+node test/extensions-api-unit.mjs       # lifecycle/settings/commands (14 cases)
+node test/extensions-test-plugin-unit.mjs  # test plugin (17 cases)
 ```
 
 The workspace also includes a **development self-test extension** `../irix-extension/qa/test-interfaces/`:
@@ -712,11 +712,11 @@ The runnable template lives at `irix-extension/community/irix-extension-template
 ## Appendix A: Template container format (example only)
 
 ```
-偏移   长度     内容
-0      8        "HELLOXTS"（ASCII 魔数）
-8      4        头部 JSON 长度 N（uint32 little-endian）
-12     N        头部 JSON（UTF-8）：{ title, artist, album, duration }
-12+N   ...      原始音频数据（FLAC/MP3/WAV/OGG/...）
+Offset  Length  Content
+0       8       "HELLOXTS" (ASCII magic)
+8       4       header JSON length N (uint32 little-endian)
+12      N       header JSON (UTF-8): { title, artist, album, duration }
+12+N    ...     raw audio data (FLAC/MP3/WAV/OGG/...)
 ```
 
 `duration` is in **milliseconds**. This is only the template's own format; real extensions should implement their actual format.
@@ -725,11 +725,11 @@ The runnable template lives at `irix-extension/community/irix-extension-template
 
 ```
 irix-extension/community/<id>/
-├── extension.json      # 必填；id 与目录名一致；settings/commands 可选
-├── index.js            # 必填；CommonJS；同步钩子；match 精确
-├── README.md           # 必填；功能/格式/限制/测试方式
-├── LICENSE             # 推荐；MIT 等兼容许可证
-└── (可选) test/ fixtures/ make-sample.mjs …
+├── extension.json      # required; id matches the directory name; settings/commands optional
+├── index.js            # required; CommonJS; synchronous hooks; precise match
+├── README.md           # required; features/format/limitations/how to test
+├── LICENSE             # recommended; MIT or another compatible license
+└── (optional) test/ fixtures/ make-sample.mjs …
 ```
 
 After packaging, `tar -tf` should look like:

@@ -65,14 +65,14 @@
 
 ```
 deepseek-harness/
-├── music-player/                       ← 主应用（本指南所在）
-└── irix-extension/                     ← 插件源码（独立目录）
+├── music-player/                       ← メインアプリ（本ガイドの場所）
+└── irix-extension/                     ← プラグインのソース（独立ディレクトリ）
     └── community/
-        └── irix-extension-template/    ← 复制这个目录，改成你自己的插件
-            ├── extension.json          ← 清单（必须有）
-            ├── index.js                ← 入口模块（必须有，默认 index.js）
-            ├── README.md               ← 插件说明（社区投稿必须有）
-            └── make-sample.mjs         ← 模板自带：生成测试用 .hello 文件
+        └── irix-extension-template/    ← このディレクトリをコピーして自分のプラグインにする
+            ├── extension.json          ← マニフェスト（必須）
+            ├── index.js                ← エントリーモジュール（必須、デフォルトは index.js）
+            ├── README.md               ← プラグインの説明（コミュニティ投稿では必須）
+            └── make-sample.mjs         ← テンプレート付属：テスト用 .hello ファイルを生成
 ```
 
 コピーしたらまず次を変更します：
@@ -93,7 +93,7 @@ deepseek-harness/
   "id": "irix-extension-template",
   "name": "Irix Extension Template",
   "version": "1.0.0",
-  "description": "iRix Audio Player 扩展模板：示例容器 .hello → 可播放音频，包含 decode/readMeta/extractCover/processAudio/生命周期/声明式设置/命令的完整写法。",
+  "description": "iRix Audio Player 拡張テンプレート：サンプルコンテナ .hello → 再生可能な音声。decode/readMeta/extractCover/processAudio/ライフサイクル/宣言型設定/コマンドの完全な書き方を収録。",
   "entry": "index.js",
   "extensions": ["hello"],
   "minAppVersion": "1.0.2-extUpdate",
@@ -103,16 +103,16 @@ deepseek-harness/
     {
       "key": "passthroughUnknown",
       "type": "boolean",
-      "label": "未知音频头时原样放行",
+      "label": "未知の音声ヘッダーならそのまま通す",
       "default": false,
-      "description": "识别不出真实格式时，不返回音频而是 passthrough（交给播放器原文件处理）"
+      "description": "実際の形式を判別できない場合、音声を返さず passthrough（プレイヤーに元ファイルの処理を任せる）"
     }
   ],
   "commands": [
     {
       "id": "ping",
-      "label": "测试命令",
-      "description": "返回插件 id/版本，验证命令接口是否接通"
+      "label": "テストコマンド",
+      "description": "プラグインの id/バージョンを返し、コマンドインターフェースが接続されているか検証する"
     }
   ]
 }
@@ -123,11 +123,11 @@ deepseek-harness/
 ```js
 'use strict';
 
-// 示例容器格式：
+// サンプルコンテナ形式：
 //   [0, 8)         magic "HELLOXTS"
-//   [8, 12)        元数据 JSON 长度 N（uint32 LE）
-//   [12, 12+N)     元数据 JSON：{ title, artist, album, duration }（duration 单位毫秒）
-//   [12+N, ...)    原始音频数据（FLAC/MP3/WAV/OGG/...）
+//   [8, 12)        メタデータ JSON 長さ N（uint32 LE）
+//   [12, 12+N)     メタデータ JSON：{ title, artist, album, duration }（duration の単位はミリ秒）
+//   [12+N, ...)    元の音声データ（FLAC/MP3/WAV/OGG/...）
 
 const MAGIC = Buffer.from('HELLOXTS');
 const MAX_HEADER = 64 * 1024;
@@ -144,11 +144,11 @@ function detectExt(buf) {
 }
 
 function splitContainer(buffer) {
-  if (!Buffer.isBuffer(buffer) || buffer.length < 12) throw new Error('文件太短，不是 HELLOXTS 容器');
-  if (!buffer.subarray(0, 8).equals(MAGIC)) throw new Error('魔数不匹配（不是 .hello 容器）');
+  if (!Buffer.isBuffer(buffer) || buffer.length < 12) throw new Error('ファイルが短すぎます。HELLOXTS コンテナではありません');
+  if (!buffer.subarray(0, 8).equals(MAGIC)) throw new Error('マジックナンバーが一致しません（.hello コンテナではありません）');
   const headLen = buffer.readUInt32LE(8);
   if (headLen < 2 || headLen > MAX_HEADER || 12 + headLen > buffer.length) {
-    throw new Error('容器头部长度不合法');
+    throw new Error('コンテナヘッダーの長さが不正です');
   }
   let meta = null;
   try {
@@ -158,7 +158,7 @@ function splitContainer(buffer) {
         title: String(j.title || ''),
         artist: String(j.artist || ''),
         album: String(j.album || ''),
-        duration: Number(j.duration) || 0,   // 毫秒
+        duration: Number(j.duration) || 0,   // ミリ秒
       };
     }
   } catch { meta = null; }
@@ -169,16 +169,16 @@ let currentSettings = { passthroughUnknown: false };
 
 function decode(buffer) {
   const { meta, data } = splitContainer(buffer);
-  if (!data.length) throw new Error('容器里没有音频数据');
+  if (!data.length) throw new Error('コンテナに音声データがありません');
   const ext = detectExt(data);
   if (!ext && currentSettings.passthroughUnknown) {
     return { data: Buffer.alloc(0), ext: 'bin', meta, passthrough: true };
   }
-  if (!ext) throw new Error('无法识别容器里的音频格式');
+  if (!ext) throw new Error('コンテナ内の音声フォーマットを認識できません');
   return { data, ext, meta, passthrough: false };
 }
 
-/** 加入列表快速路径：只读元数据，不复制音频 */
+/** リスト追加の高速パス：メタデータのみ読み、音声はコピーしない */
 function readMeta(buffer) {
   try { return splitContainer(buffer).meta; } catch { return null; }
 }
@@ -191,7 +191,7 @@ module.exports = {
     currentSettings = { ...ctx.settings };
     ctx.log('irix-extension-template activated', ctx.extension.version);
   },
-  deactivate() { /* 释放资源 */ },
+  deactivate() { /* リソースを解放 */ },
   onSettingsChanged(values) { currentSettings = { ...values }; },
   commands: {
     async ping(ctx) { return `irix-extension-template v${ctx.extension.version} OK`; },
@@ -205,10 +205,10 @@ module.exports = {
 ### 2.4 パッケージ化・インストール・検証
 
 ```powershell
-# 1) 打包（.xtxs 就是 tar 包；-C 指定源目录，. 表示把目录内容放在包根）
+# 1) パッケージ化（.xtxs は tar パッケージ。 -C でソースディレクトリを指定し、. はディレクトリ内容をパッケージのルートに置く）
 tar -cf iRix-Extension-irix-extension-template-1.0.0.xtxs -C ..\irix-extension\community\irix-extension-template .
 
-# 2) 检查包内容（应看到 extension.json / index.js / README.md）
+# 2) パッケージ内容を確認（extension.json / index.js / README.md が見えるはず）
 tar -tf iRix-Extension-irix-extension-template-1.0.0.xtxs
 ```
 
@@ -277,10 +277,10 @@ node ..\irix-extension\community\irix-extension-template\make-sample.mjs .\song.
 {
   key: 'quality',                 // ^[a-z0-9][a-z0-9._-]{0,63}$
   type: 'select',                 // text | number | boolean | select
-  label: '处理质量',               // 最长 80 字符
-  description: '可选说明',         // 最长 240 字符
+  label: '処理品質',               // 最大 80 文字
+  description: '任意の説明',         // 最大 240 文字
   default: 'high',
-  options: [{ value: 'low', label: '快速' }, { value: 'high', label: '高质量' }]
+  options: [{ value: 'low', label: '高速' }, { value: 'high', label: '高品質' }]
 }
 ```
 
@@ -295,7 +295,7 @@ node ..\irix-extension\community\irix-extension-template\make-sample.mjs .\song.
 ### 4.2 `commands` コマンドボタン
 
 ```js
-{ id: 'clear-cache', label: '清理解码缓存', description: '删除本扩展的解码缓存' }
+{ id: 'clear-cache', label: 'デコードキャッシュを削除', description: 'この拡張機能のデコードキャッシュを削除する' }
 ```
 
 モジュール内で同名の関数をエクスポートします：
@@ -304,7 +304,7 @@ node ..\irix-extension\community\irix-extension-template\make-sample.mjs .\song.
 module.exports = {
   commands: {
     async 'clear-cache'(ctx) {
-      return '已清理 3 个缓存文件';   // 返回值显示在设置页状态行
+      return 'キャッシュファイルを 3 個削除しました';   // 戻り値は設定ページのステータス行に表示される
     },
   },
 };
@@ -325,26 +325,26 @@ module.exports = {
 
 ```js
 module.exports = {
-  id: 'my-plugin',                  // 可选，与 manifest.id 一致
-  match: /\.xyz$/i,                 // 必须：RegExp（对文件名 basename 测试）
+  id: 'my-plugin',                  // 任意。manifest.id と一致させる
+  match: /\.xyz$/i,                 // 必須：RegExp（ファイル名の basename に対してテスト）
 
-  decode(buffer, { name }) {        // 容器解码，必须同步
+  decode(buffer, { name }) {        // コンテナのデコード。同期必須
     return {
-      data: Buffer,                 // 解码出的原始音频
-      ext: 'flac',                  // 真实格式（不带点）
-      meta: { title, artist, album, duration }, // 可选，duration 单位毫秒
-      cover: Buffer,                // 可选：JPEG/PNG 封面
-      passthrough: false,           // 可选：true = 原样交给播放器
+      data: Buffer,                 // デコードした元の音声
+      ext: 'flac',                  // 実際の形式（ドットなし）
+      meta: { title, artist, album, duration }, // 任意。duration の単位はミリ秒
+      cover: Buffer,                // 任意：JPEG/PNG カバー
+      passthrough: false,           // 任意：true = そのままプレイヤーに渡す
     };
   },
 
-  readMeta(buffer, { name }) { /* 可选：只读元数据，返回 meta 或 null */ },
-  extractCover(buffer, { name }) { /* 可选：返回封面 Buffer 或 null */ },
-  processAudio(data, ctx) { /* 可选：返回 Buffer 或 { data, ext } */ },
-  activate(ctx) { /* 可选：模块加载完成 */ },
-  deactivate() { /* 可选：卸载/禁用/退出 */ },
-  onSettingsChanged(values, key) { /* 可选：设置变更 */ },
-  commands: { /* 可选：与 manifest.commands 对应 */ },
+  readMeta(buffer, { name }) { /* 任意：メタデータのみ読み、meta または null を返す */ },
+  extractCover(buffer, { name }) { /* 任意：カバー Buffer または null を返す */ },
+  processAudio(data, ctx) { /* 任意：Buffer または { data, ext } を返す */ },
+  activate(ctx) { /* 任意：モジュールの読み込み完了 */ },
+  deactivate() { /* 任意：アンロード/無効化/終了 */ },
+  onSettingsChanged(values, key) { /* 任意：設定変更 */ },
+  commands: { /* 任意：manifest.commands に対応 */ },
 };
 ```
 
@@ -406,12 +406,12 @@ activate(ctx) {
   // ctx = {
   //   appVersion: '1.0.2-extUpdate',
   //   extension: { id, name, version, dir },
-  //   settings: { ...默认值 + 已保存值 },
-  //   log: (...args) => void,   // 主进程日志
+  //   settings: { ...デフォルト値 + 保存済みの値 },
+  //   log: (...args) => void,   // メインプロセスのログ
   // }
 }
-deactivate() { /* 释放资源 */ }
-onSettingsChanged(values, key) { /* 用户改了设置 */ }
+deactivate() { /* リソースを解放 */ }
+onSettingsChanged(values, key) { /* ユーザーが設定を変更 */ }
 ```
 
 - `activate` は Promise を返しても構いません（アプリは完了を待ちません。非同期の失敗はログに記録されるだけで、他の機能には影響しません）。
@@ -512,7 +512,7 @@ sha256sum "iRix-Extension-myplugin-1.0.0.xtxs"
 
 ```bash
 node scripts/build-extension.mjs
-# 输出：dist/iRix-Extension-<id>-<version>.xtxs
+# 出力：dist/iRix-Extension-<id>-<version>.xtxs
 ```
 
 コミュニティプラグインは `../irix-extension/community/<id>/` で 9.1 に従ってパッケージ化します。
@@ -523,8 +523,8 @@ node scripts/build-extension.mjs
 
 ```bash
 node scripts/build-template-plugin.mjs
-# 输出：dist/iRix-Extension-irix-extension-template-1.0.0.xtxs
-# 或：npm run pack:template-plugin
+# 出力：dist/iRix-Extension-irix-extension-template-1.0.0.xtxs
+# または：npm run pack:template-plugin
 ```
 
 インストール手順は第 10 節と同じ：設定 → 拡張機能 → 拡張機能をインストール… → `.xtxs` を選択 → 再起動。
@@ -579,9 +579,9 @@ console.log(plugin.readMeta(buf, { name: 'song.hello' }));
 
 ```bash
 node ../irix-extension/community/irix-extension-template/make-sample.mjs input.flac song.hello
-node test/extensions-guide-unit.mjs     # 文档/模板/真实 .xtxs 安装流程（23 项，含三语指南）
-node test/extensions-api-unit.mjs       # 生命周期/设置/命令（14 项）
-node test/extensions-test-plugin-unit.mjs  # 测试插件（17 项）
+node test/extensions-guide-unit.mjs     # ドキュメント/テンプレート/実際の .xtxs インストール手順（23 項、三言語ガイドを含む）
+node test/extensions-api-unit.mjs       # ライフサイクル/設定/コマンド（14 項）
+node test/extensions-test-plugin-unit.mjs  # テストプラグイン（17 項）
 ```
 
 ワークスペースには**開発セルフテスト用プラグイン** `../irix-extension/qa/test-interfaces/` もあります：
@@ -712,11 +712,11 @@ node test/extensions-api-unit.mjs
 ## 付録 A：テンプレートのコンテナ形式（例のみ）
 
 ```
-偏移   长度     内容
-0      8        "HELLOXTS"（ASCII 魔数）
-8      4        头部 JSON 长度 N（uint32 little-endian）
-12     N        头部 JSON（UTF-8）：{ title, artist, album, duration }
-12+N   ...      原始音频数据（FLAC/MP3/WAV/OGG/...）
+オフセット   長さ     内容
+0      8        "HELLOXTS"（ASCII マジックナンバー）
+8      4        ヘッダー JSON 長さ N（uint32 little-endian）
+12     N        ヘッダー JSON（UTF-8）：{ title, artist, album, duration }
+12+N   ...      元の音声データ（FLAC/MP3/WAV/OGG/...）
 ```
 
 `duration` の単位は**ミリ秒**です。これはテンプレート独自の形式にすぎず、正式なプラグインは実際の形式に合わせて実装してください。
@@ -725,11 +725,11 @@ node test/extensions-api-unit.mjs
 
 ```
 irix-extension/community/<id>/
-├── extension.json      # 必填；id 与目录名一致；settings/commands 可选
-├── index.js            # 必填；CommonJS；同步钩子；match 精确
-├── README.md           # 必填；功能/格式/限制/测试方式
-├── LICENSE             # 推荐；MIT 等兼容许可证
-└── (可选) test/ fixtures/ make-sample.mjs …
+├── extension.json      # 必須 / id はディレクトリ名と一致 / settings/commands は任意
+├── index.js            # 必須 / CommonJS / 同期フック / match は正確に
+├── README.md           # 必須 / 機能/形式/制限/テスト方法
+├── LICENSE             # 推奨 / MIT などの互換ライセンス
+└── (任意) test/ fixtures/ make-sample.mjs …
 ```
 
 パッケージ化後の `tar -tf` は次のようになるはずです：
