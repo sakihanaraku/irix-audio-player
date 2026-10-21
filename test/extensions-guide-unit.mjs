@@ -79,6 +79,21 @@ try {
   check('引导内嵌示例与模板清单一致（id / extensions）',
     guideManifest && guideManifest.id === templateManifest.id &&
     Array.isArray(guideManifest.extensions) && guideManifest.extensions.join() === templateManifest.extensions.join());
+
+  
+  for (const [file, label] of [['EXTENSIONS.en.md', 'English'], ['EXTENSIONS.ja.md', 'Japanese']]) {
+    let text = '';
+    try { text = read(path.join(projectRoot, file)); } catch {  }
+    const fences = (text.match(/```/g) || []).length;
+    const blocks = [...text.matchAll(/```json\n([\s\S]*?)```/g)].map((m) => m[1]);
+    let manifest = null;
+    try { manifest = JSON.parse(blocks[0]); } catch { manifest = null; }
+    check(`${label} 开发指南存在且与模板示例一致`,
+      text.length > 10000 && fences % 2 === 0 && manifest &&
+      manifest.id === templateManifest.id &&
+      Array.isArray(manifest.extensions) && manifest.extensions.join() === templateManifest.extensions.join(),
+      text ? `长度 ${text.length} / fences ${fences}` : '文件不存在');
+  }
   check('模板 README / 社区投稿说明 / 目录文件齐全',
     fs.existsSync(path.join(templateDir, 'README.md')) &&
     read(path.join(templateDir, 'README.md')).includes('EXTENSIONS.md') &&

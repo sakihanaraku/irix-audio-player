@@ -1,5 +1,7 @@
 # `.xtxs` 插件开发指南（社区投稿版）
 
+**中文** | [English](EXTENSIONS.en.md) | [日本語](EXTENSIONS.ja.md)
+
 > 适用：**iRix Audio Player 1.0.2-extUpdate 及以后** · 扩展接口 **ext**
 > 文档版本：2026-10-21 · 仓库：<https://github.com/sakihanaraku/irix-audio-player>
 
@@ -577,7 +579,7 @@ console.log(plugin.readMeta(buf, { name: 'song.hello' }));
 
 ```bash
 node ../irix-extension/community/irix-extension-template/make-sample.mjs input.flac song.hello
-node test/extensions-guide-unit.mjs     # 文档/模板/真实 .xtxs 安装流程（21 项）
+node test/extensions-guide-unit.mjs     # 文档/模板/真实 .xtxs 安装流程（23 项，含三语指南）
 node test/extensions-api-unit.mjs       # 生命周期/设置/命令（14 项）
 node test/extensions-test-plugin-unit.mjs  # 测试插件（17 项）
 ```
