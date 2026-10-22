@@ -641,6 +641,12 @@
         setTimeout(() => {
           const btn = $('btnLyricsFull');
           if (btn) btn.click();
+          
+          if (location.search.includes('lyrics-exclusive-light')) {
+            setTimeout(() => {
+              document.body.classList.add('light');
+            }, 300);
+          }
         }, 900);
       }, 600);
       return;

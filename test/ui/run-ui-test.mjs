@@ -275,6 +275,13 @@ const shotLxOk = fs.existsSync(shotLx) && fs.statSync(shotLx).size > 5000;
 console.log(`${shotLxOk ? '✓' : '✗'} 歌词独占截图: ${shotLx}`);
 
 
+const shotLxLight = path.join(artifacts, 'ui-lyrics-exclusive-light.png');
+fs.rmSync(shotLxLight, { force: true });
+await runEdge([...commonFlags, '--virtual-time-budget=7000', `--screenshot=${shotLxLight}`, `${base}/?mode=lyrics-exclusive-light`]);
+const shotLxLightOk = fs.existsSync(shotLxLight) && fs.statSync(shotLxLight).size > 5000;
+console.log(`${shotLxLightOk ? '✓' : '✗'} 歌词独占浅色截图: ${shotLxLight}`);
+
+
 
 {
   const shot = path.join(artifacts, 'ui-screenshot.png');

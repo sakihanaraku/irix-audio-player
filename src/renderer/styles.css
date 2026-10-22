@@ -1858,6 +1858,20 @@ body.lyrics-exclusive .statusbar { display: none; }
   transition: color .18s ease, opacity .18s ease;
 }
 .lx-line.is-active { color: var(--accent); opacity: 1; font-weight: 700; }
+
+body.light .lx-line {
+  color: #1f2a37;
+  opacity: .82;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, .55);
+}
+body.light .lx-line.is-active {
+  color: var(--accent-darker);
+  opacity: 1;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, .8);
+}
+body.light .lx-lyrics.is-plain .lx-line { color: var(--text); opacity: .86; }
+body.light .lx-note { color: #43536a; }
+body.light .lx-dim { background: rgba(250, 252, 255, .60); }
 .lx-lyrics.is-plain .lx-line { color: var(--text); opacity: .78; }
 
 .lx-lyrics.is-enter { animation: lxLyricsIn .3s cubic-bezier(.22, .85, .3, 1); }

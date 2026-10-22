@@ -474,6 +474,11 @@ const checks = [
   ['歌词独占：打开时背景压暗（内容下半透明暗层，深浅主题各一套强度）',
     html.includes('id="lxDim"') && css.includes('.lx-dim {') && css.includes('background: var(--lx-dim);') &&
     (css.match(/--lx-dim:/g) || []).length === 2],
+  ['歌词独占：浅色主题只提亮背景（无边框/面板 + 深色非当前行 + 深色 accent 当前行）',
+    !css.includes('.lx-lyrics-col::before') &&
+    /body\.light \.lx-dim \{ background: rgba\(250, 252, 255, \.60\)/.test(css) &&
+    /body\.light \.lx-line \{[^}]*color: #1f2a37/.test(css) &&
+    /body\.light \.lx-line\.is-active \{[^}]*color: var\(--accent-darker\)/.test(css)],
   ['歌词独占：打开淡入 / 关闭淡出（终态由 body 类决定，不依赖动画）',
     /#lyricsExclusive \{[^}]*opacity: 0/.test(css) &&
     /#lyricsExclusive \{[^}]*visibility: hidden/.test(css) &&
