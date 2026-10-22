@@ -2,7 +2,7 @@
 
 [中文](README.zh-CN.md) | **English** | [日本語](README.ja.md)
 
-> Latest version: **1.0.2-extUpdate**
+> Latest version: **1.0.2-ext-v2x**
 
 Based on **Electron** + **N-API** + **ffmpeg**. (!!The Linux version is not stable yet, so there is no build script)
 > UI: left column cover / info / controls, lyrics, WebGL peak meter and status cells; right column playlist + file browser. Default window 1366×768.
@@ -27,8 +27,8 @@ Based on **Electron** + **N-API** + **ffmpeg**. (!!The Linux version is not stab
 | **Play ranking** | Ranked by number of complete plays |
 | **Full-window lyrics** | Shows cover + title/artist/album/lyrics (new in v1.0.2-release); the background follows the main background from settings |
 | **Installable extensions** | Extensions in .xtxs format can be installed |
-| **Extension interface ext-v2** | Lifecycle `activate(ctx)` / `deactivate()`, fast metadata `readMeta()`, cover `extractCover()`, file-level post-processing `processAudio()`, declarative settings/commands, `startup:true` activation at startup (new in v1.0.2-extUpdate) |
-| **Extension fix** | Fixed the issue where container plugin files (e.g. `.testext` / `.ncm`) were still handed to ffmpeg as the original container after being added to the playlist, which caused `Invalid data found` (v1.0.2-extUpdate) |
+| **Extension interface ext-v2** | Lifecycle `activate(ctx)` / `deactivate()`, fast metadata `readMeta()`, cover `extractCover()`, file-level post-processing `processAudio()`, declarative settings/commands, `startup:true` activation at startup (new in v1.0.2-ext-v2x) |
+| **Extension fix** | Fixed the issue where container plugin files (e.g. `.testext` / `.ncm`) were still handed to ffmpeg as the original container after being added to the playlist, which caused `Invalid data found` (v1.0.2-ext-v2x) |
 
 ## Extensions
 

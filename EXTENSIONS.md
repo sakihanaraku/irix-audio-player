@@ -2,8 +2,12 @@
 
 [中文](EXTENSIONS.zh-CN.md) | **English** | [日本語](EXTENSIONS.ja.md)
 
-> Applies to: **iRix Audio Player 1.0.2-extUpdate and later** · Extension interface **ext**
-> Document version: 2026-10-21 · Repository: <https://github.com/sakihanaraku/irix-audio-player>
+> Applies to: **iRix Audio Player 1.0.2-ext-v2x and later** · Extension interface **ext**
+> Document version: 2026-10-22 · Repository: <https://github.com/sakihanaraku/irix-audio-player>
+
+> **1.0.2-ext-v2x**: adds the optional ext-v2x UI layer — `manifest.ui` / `uiLanguage`, `ctx.ui`
+> (text/font/language overrides), and the complete `lang-loader` language-extension example.
+> Existing ext-v2 extensions remain compatible; no existing interface was rewritten.
 
 This guide is for community developers who want to write extensions for iRix Audio Player: from the minimal runnable example, manifest and module specification,
 to settings/commands, startup windows, debugging and the submission process — all based on the actual behavior of the current version.
@@ -96,7 +100,7 @@ After copying, change these first:
   "description": "iRix Audio Player extension template: sample container .hello → playable audio, with complete implementations of decode/readMeta/extractCover/processAudio/lifecycle/declarative settings/commands.",
   "entry": "index.js",
   "extensions": ["hello"],
-  "minAppVersion": "1.0.2-extUpdate",
+  "minAppVersion": "1.0.2-ext-v2x",
   "author": "your-name",
   "license": "MIT",
   "settings": [
@@ -268,6 +272,8 @@ Persisted setting values are stored under `extensionSettings.<id>` in `settings.
 | `homepage` | optional | string | Extension homepage/source URL (ignored by the loader; for catalog display) |
 | `license` | optional | string | License identifier (ignored by the loader; for catalog display) |
 | `startup` | optional | boolean | `true` = automatically `activate()` at app startup (for popup/background-helper extensions) |
+| `ui` | optional | boolean | ext-v2x: `true` enables `ctx.ui` UI text/font/language overrides (see §5.7) |
+| `uiLanguage` | optional | boolean | ext-v2x: `true` = this extension takes over UI language; while installed and enabled the built-in language selector is disabled |
 | `settings` | optional | array | Declarative setting items (max 32) |
 | `commands` | optional | array | Command buttons (max 16) |
 
@@ -404,7 +410,7 @@ rather than allocate out of bounds or loop forever.
 ```js
 activate(ctx) {
   // ctx = {
-  //   appVersion: '1.0.2-extUpdate',
+  //   appVersion: '1.0.2-ext-v2x',
   //   extension: { id, name, version, dir },
   //   settings: { ...defaults + saved values },
   //   log: (...args) => void,   // main-process log
@@ -426,6 +432,33 @@ onSettingsChanged(values, key) { /* the user changed a setting */ }
   add-to-list failures are marked "Cannot decode"; settings/command errors are shown in the settings page status line;
 - Do not `process.exit()` / call `app.quit()` / show a system dialog;
 - Do not start resident timers or listen on ports — extensions are only called on demand and have no lifecycle management of their own.
+
+### 5.7 ext-v2x: overriding UI text, font and language (optional)
+
+This is an additive interface on top of ext-v2; existing ext-v2 extensions are unaffected.
+
+Declare `"ui": true` in `extension.json`, then use `ctx.ui` from `activate` / `onSettingsChanged` / `commands`:
+
+```js
+ctx.ui.setTexts({
+  strings: { 'tip.settings': 'Preferences', 'set.audioMode': 'Output mode' },
+  font: '"Segoe UI", sans-serif',
+  language: 'en',
+});
+// or individually:
+ctx.ui.setStrings({ 'tip.settings': 'Preferences' }); // replaces all string overrides
+ctx.ui.setFont('"Noto Sans JP", sans-serif');
+ctx.ui.setLanguage('ja');
+ctx.ui.clear();
+```
+
+- `strings` keys are the same i18n keys used by the app (`tip.*`, `set.*`, …); values are plain text, never HTML;
+- overrides take precedence over the built-in language; unspecified keys keep the built-in text;
+- `font` is a CSS `font-family` value applied to the whole UI; an empty string restores the default;
+- `language` only sets `<html lang>` (used for font selection / spellcheck), not the app's language setting;
+- limits: 2000 strings, each ≤ 4096 chars; invalid keys/values/HTML-like font values are rejected with an error;
+- call `ctx.ui.clear()` in `deactivate()`; the app also removes the overrides automatically when the extension is disabled or uninstalled;
+- full example: `../irix-extension/qa/lang-loader/` — reads `lang/*.lang`, auto-loads one at startup and opens a language picker; malformed files are shown as **损坏的文件** / **corrupted file** and never applied.
 
 ---
 

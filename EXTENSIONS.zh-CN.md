@@ -2,8 +2,12 @@
 
 **中文** | [English](EXTENSIONS.md) | [日本語](EXTENSIONS.ja.md)
 
-> 适用：**iRix Audio Player 1.0.2-extUpdate 及以后** · 扩展接口 **ext**
-> 文档版本：2026-10-21 · 仓库：<https://github.com/sakihanaraku/irix-audio-player>
+> 适用：**iRix Audio Player 1.0.2-ext-v2x 及以后** · 扩展接口 **ext**
+> 文档版本：2026-10-22 · 仓库：<https://github.com/sakihanaraku/irix-audio-player>
+
+> **1.0.2-ext-v2x**：新增可选 ext-v2x UI 层 —— `manifest.ui` / `uiLanguage`、`ctx.ui`
+> （文字/字体/语言覆盖），以及完整的 `lang-loader` 语言扩展示例。
+> 原有 ext-v2 插件保持兼容，没有重写任何旧接口。
 
 本指南面向想为 iRix Audio Player 编写插件的社区开发者：从最小可运行示例、清单与模块规范，
 到设置/命令、启动窗口、调试和投稿流程，全部以当前版本的实际行为为准。
@@ -96,7 +100,7 @@ deepseek-harness/
   "description": "iRix Audio Player 扩展模板：示例容器 .hello → 可播放音频，包含 decode/readMeta/extractCover/processAudio/生命周期/声明式设置/命令的完整写法。",
   "entry": "index.js",
   "extensions": ["hello"],
-  "minAppVersion": "1.0.2-extUpdate",
+  "minAppVersion": "1.0.2-ext-v2x",
   "author": "your-name",
   "license": "MIT",
   "settings": [
@@ -268,6 +272,8 @@ node ..\irix-extension\community\irix-extension-template\make-sample.mjs .\song.
 | `homepage` | 可选 | string | 插件主页/源码地址（加载器忽略，供目录展示） |
 | `license` | 可选 | string | 许可证标识（加载器忽略，供目录展示） |
 | `startup` | 可选 | boolean | `true` = 应用启动时自动 `activate()`（弹窗/后台辅助类插件用） |
+| `ui` | 可选 | boolean | ext-v2x：`true` 才允许使用 `ctx.ui` 覆盖界面文字/字体/语言（见 §5.7） |
+| `uiLanguage` | 可选 | boolean | ext-v2x：`true` = 该扩展接管界面语言；安装并启用时禁用内置语言选择 |
 | `settings` | 可选 | array | 声明式设置项（最多 32 项） |
 | `commands` | 可选 | array | 命令按钮（最多 16 项） |
 
@@ -404,7 +410,7 @@ module.exports = {
 ```js
 activate(ctx) {
   // ctx = {
-  //   appVersion: '1.0.2-extUpdate',
+  //   appVersion: '1.0.2-ext-v2x',
   //   extension: { id, name, version, dir },
   //   settings: { ...默认值 + 已保存值 },
   //   log: (...args) => void,   // 主进程日志
@@ -426,6 +432,33 @@ onSettingsChanged(values, key) { /* 用户改了设置 */ }
   加入列表失败标记「无法解码」；设置/命令错误显示在设置页状态行；
 - 不要 `process.exit()` / 调用 `app.quit()` / 弹系统对话框；
 - 不要启动常驻定时器/监听端口 —— 插件只在需要时被调用，没有自己的生命周期管理。
+
+### 5.7 ext-v2x：覆盖界面文字 / 字体 / 语言（可选）
+
+这是 ext-v2 之上的增量接口，原有 ext-v2 插件完全不受影响。
+
+在 `extension.json` 声明 `"ui": true`，然后在 `activate` / `onSettingsChanged` / `commands` 里使用 `ctx.ui`：
+
+```js
+ctx.ui.setTexts({
+  strings: { 'tip.settings': '首选项', 'set.audioMode': '输出模式' },
+  font: '"Microsoft YaHei", sans-serif',
+  language: 'zh-CN',
+});
+// 也可以逐项设置：
+ctx.ui.setStrings({ 'tip.settings': '首选项' }); // 整组替换
+ctx.ui.setFont('"Noto Sans SC", sans-serif');
+ctx.ui.setLanguage('zh-CN');
+ctx.ui.clear();
+```
+
+- `strings` 的键就是程序内置 i18n 键（`tip.*`、`set.*` 等）；值只能是纯文本，不能是 HTML；
+- 覆盖优先于内置语言；未覆盖的键继续用内置文案；
+- `font` 是 CSS `font-family`，作用于整个界面；空字符串恢复默认；
+- `language` 只设置 `<html lang>`（影响字体选择/拼写检查），不改程序的「界面语言」设置；
+- 限制：最多 2000 条、每条 ≤ 4096 字符；非法键/空值/含 HTML 的字体值会直接报错拒绝；
+- 在 `deactivate()` 里调用 `ctx.ui.clear()`；禁用/卸载扩展时程序也会自动清除；
+- 完整示例：`../irix-extension/qa/lang-loader/` —— 读取 `lang/*.lang`，启动自动加载，并提供语言选择窗口；格式错误的文件显示为 **损坏的文件**，绝不会被应用。
 
 ---
 

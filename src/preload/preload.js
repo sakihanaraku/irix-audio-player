@@ -12,6 +12,8 @@ const EVENT_CHANNELS = [
   
   
   'taskbar:command',
+  
+  'ext:ui',
 ];
 
 contextBridge.exposeInMainWorld('aurora', {
@@ -25,6 +27,8 @@ contextBridge.exposeInMainWorld('aurora', {
     
     setSetting: (id, key, value) => ipcRenderer.invoke('ext:set-setting', { id, key, value }),
     runCommand: (id, commandId) => ipcRenderer.invoke('ext:command', { id, commandId }),
+    
+    ui: () => ipcRenderer.invoke('ext:ui'),
   },
   restart: () => ipcRenderer.invoke('app:restart'),
   

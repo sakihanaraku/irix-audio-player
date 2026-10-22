@@ -30,14 +30,79 @@ const VOLUME_STEP = 5;
 const I18N = window.I18N;
 let LANG = 'zh';
 
+let EXT_UI = { strings: {}, font: '', language: '' };
+
+function fmtUiText(text, vars) {
+  return String(text).replace(/\{(\w+)\}/g, (m, name) => (vars && vars[name] !== undefined ? String(vars[name]) : m));
+}
+
 function tr(key, vars) {
+  const overridden = EXT_UI.strings && EXT_UI.strings[key];
+  if (typeof overridden === 'string') return fmtUiText(overridden, vars);
   return I18N.translate(LANG, key, vars);
+}
+
+
+function applyExtensionUi(ui, refresh = true) {
+  const strings = ui && ui.strings && typeof ui.strings === 'object' && !Array.isArray(ui.strings) ? ui.strings : {};
+  EXT_UI = {
+    strings,
+    font: ui && typeof ui.font === 'string' ? ui.font : '',
+    language: ui && typeof ui.language === 'string' ? ui.language : '',
+  };
+  const root = document.documentElement;
+  if (EXT_UI.font) root.style.setProperty('--ui-font', EXT_UI.font);
+  else root.style.removeProperty('--ui-font');
+  if (refresh && state.settings) applyLanguage(state.settings.language || 'auto');
+  else if (EXT_UI.language) root.lang = EXT_UI.language;
+  
+  if (refresh && state.settings && $('settingsModal') && !$('settingsModal').hidden) {
+    renderExtensions().catch(() => {});
+  }
+}
+
+
+async function initExtensionUi() {
+  try {
+    if (api.ext && typeof api.ext.ui === 'function') applyExtensionUi(await api.ext.ui(), false);
+  } catch {  }
+  if (typeof api.on === 'function') api.on('ext:ui', (ui) => applyExtensionUi(ui, true));
+  
+  setTimeout(() => {
+    try {
+      if (api.ext && typeof api.ext.ui === 'function') {
+        api.ext.ui().then((ui) => applyExtensionUi(ui, true)).catch(() => {});
+      }
+    } catch {  }
+  }, 1500);
+}
+
+
+async function refreshLanguageSettingAvailability() {
+  const sel = $('selLanguage');
+  if (!sel) return;
+  let managed = false;
+  try {
+    if (api.ext && typeof api.ext.list === 'function') {
+      const list = await api.ext.list();
+      managed = Array.isArray(list) && list.some((e) => e && e.enabled && e.installed && e.uiLanguage === true);
+    }
+  } catch {  }
+  sel.disabled = managed;
+  sel.setAttribute('aria-disabled', String(managed));
+  if (typeof syncSelectUI === 'function') syncSelectUI(sel);
+  if (managed && typeof closeSelectUI === 'function') closeSelectUI(sel);
+  const pick = sel.closest('.lang-pick');
+  if (pick) {
+    pick.classList.toggle('is-ext-managed', managed);
+    pick.title = managed ? tr('set.languageExtManaged') : 'Language / 言語 / 语言';
+  }
 }
 
 
 function applyLanguage(lang) {
   LANG = I18N.resolve(lang, navigator.language || '');
-  document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : LANG;
+  document.documentElement.lang = EXT_UI.language || (LANG === 'zh' ? 'zh-CN' : LANG);
 
   for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = tr(el.dataset.i18n);
   for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = tr(el.dataset.i18nTitle);
@@ -52,7 +117,6 @@ function applyLanguage(lang) {
     applyInfoToUi();
     buildBackendSelect();
     refreshDevices().catch(() => {});
-    updateBackendHint();
   }
   updateDeviceStatus();
 
@@ -83,16 +147,6 @@ const BACKEND_LABELS = {
   directsound: 'backend.directsound',
   mme: 'backend.mme',
   alsa: 'backend.alsa',
-};
-
-const BACKEND_HINTS = {
-  auto: 'backend.hint.auto',
-  'wasapi-shared': 'backend.hint.shared',
-  'wasapi-exclusive': 'backend.hint.exclusive',
-  directsound: 'backend.hint.directsound',
-  mme: 'backend.hint.mme',
-  alsa: 'backend.hint.alsa',
-  default: 'backend.hint.shared',
 };
 
 
@@ -1170,6 +1224,7 @@ async function boot() {
   document.documentElement.classList.add('rounded-shell');
   document.body.classList.add('rounded-shell');
   state.settings = state.info.settings;
+  await initExtensionUi();
   applyTheme(state.settings.themeColor || DEFAULT_THEME);
   applyLanguage(state.settings.language || 'auto');
   applyUiTheme(state.settings.uiTheme || 'dark');
@@ -1185,6 +1240,7 @@ async function boot() {
   bindMediaSession();                
   bindTaskbarCommands();             
   bindExtensions();                  
+  refreshLanguageSettingAvailability().catch(() => {});
   bindSplitter();
   bindPlaylistDropTarget();
   bindBrowser().catch(() => {});
@@ -1299,6 +1355,13 @@ function setExtStatus(text) {
 }
 
 
+function extUiText(item, suffix, fallback) {
+  const key = `ext.${item.id}.${suffix}`;
+  const text = tr(key);
+  return text === key ? (fallback || '') : text;
+}
+
+
 function renderExtensionSettings(entry, item) {
   const settings = Array.isArray(item.settings) ? item.settings : [];
   if (!settings.length) return;
@@ -1310,8 +1373,9 @@ function renderExtensionSettings(entry, item) {
     row.className = 'ext-setting';
     const label = document.createElement('span');
     label.className = 'ext-setting-label';
-    label.textContent = desc.label || desc.key;
-    if (desc.description) label.title = desc.description;
+    label.textContent = extUiText(item, `setting.${desc.key}`, desc.label || desc.key);
+    const settingDesc = extUiText(item, `setting.${desc.key}.description`, desc.description || '');
+    if (settingDesc) label.title = settingDesc;
     const ctrl = document.createElement('span');
     ctrl.className = 'ext-setting-control';
     const current = values[desc.key] !== undefined ? values[desc.key] : desc.default;
@@ -1372,8 +1436,9 @@ function renderExtensionCommands(entry, item) {
   for (const cmd of commands) {
     const btn = document.createElement('button');
     btn.className = 'btn mini';
-    btn.textContent = cmd.label || cmd.id;
-    if (cmd.description) btn.title = cmd.description;
+    btn.textContent = extUiText(item, `command.${cmd.id}`, cmd.label || cmd.id);
+    const cmdDesc = extUiText(item, `command.${cmd.id}.description`, cmd.description || '');
+    if (cmdDesc) btn.title = cmdDesc;
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       try {
@@ -1404,6 +1469,7 @@ async function renderExtensions() {
     empty.className = "ext-empty";
     empty.textContent = tr('ext.empty');
     box.appendChild(empty);
+    refreshLanguageSettingAvailability().catch(() => {});
     return;
   }
   for (const item of list) {
@@ -1415,10 +1481,10 @@ async function renderExtensions() {
     mainEl.className = "ext-main";
     const nameEl = document.createElement("div");
     nameEl.className = "ext-name";
-    nameEl.textContent = item.name + (item.version ? "  v" + item.version : "");
     const descEl = document.createElement("div");
     descEl.className = "ext-desc";
-    descEl.textContent = item.description || "";
+    nameEl.textContent = extUiText(item, 'name', item.name) + (item.version ? "  v" + item.version : "");
+    descEl.textContent = extUiText(item, 'description', item.description || "");
     mainEl.append(nameEl, descEl);
     const sw = document.createElement("label");
     sw.className = "ext-switch";
@@ -1426,7 +1492,7 @@ async function renderExtensions() {
     cb.type = "checkbox";
     cb.checked = !!item.enabled;
     cb.addEventListener("change", async () => {
-      try { await api.ext.toggle(item.id, cb.checked); markRestartNeeded(); }
+      try { await api.ext.toggle(item.id, cb.checked); markRestartNeeded(); refreshLanguageSettingAvailability().catch(() => {}); }
       catch { cb.checked = !cb.checked; }
     });
     sw.appendChild(cb);
@@ -1446,6 +1512,7 @@ async function renderExtensions() {
     renderExtensionCommands(entry, item);
     box.appendChild(entry);
   }
+  refreshLanguageSettingAvailability().catch(() => {});
 }
 
 
@@ -1511,24 +1578,14 @@ function buildBackendSelect() {
   sel.appendChild(auto);
   
   sel.value = keep;
-  updateBackendHint();
   if (!sel.dataset.bound) {
     sel.dataset.bound = '1';
     sel.addEventListener('change', () => {
-      updateBackendHint();
       
       
       stageAudio({ backend: sel.value, deviceId: '' });
     });
   }
-}
-
-function updateBackendHint() {
-  const id = $('selBackend').value;
-  const b = (state.info.backends || []).find((x) => x.id === id);
-  $('backendHint').textContent = id === 'auto'
-    ? tr(BACKEND_HINTS.auto)
-    : (b?.description || tr(BACKEND_HINTS[id] || BACKEND_HINTS.default));
 }
 
 function buildRateSelect() {
@@ -1618,7 +1675,6 @@ function applySettingsToControls() {
   const keepAudio = audioPendingCount() > 0;
   if (!keepAudio) {
     $('selBackend').value = s.backend || defaultBackendId();
-    updateBackendHint();
     $('selRate').value = String(s.sampleRate ?? 48000);
     $('selBits').value = String(s.bits ?? 32);
     $('selChannels').value = String(s.channels ?? 2);
@@ -1638,7 +1694,6 @@ function applySettingsToControls() {
     $('selRing').value = String(s.ringMs ?? 800);
   }
   if (s.wineCompat) $('selWineCompat').value = s.wineCompat;
-  updateBackendHint();
   renderAudioPending();
 }
 
@@ -2933,6 +2988,7 @@ function syncSelectUI(sel) {
 }
 
 function openSelectUI(sel) {
+  if (sel.disabled) return;
   const ui = SELECT_UI.get(sel);
   if (!ui || !ui.pop.hidden) return;
   for (const other of SELECT_UI.keys()) if (other !== sel) closeSelectUI(other);   

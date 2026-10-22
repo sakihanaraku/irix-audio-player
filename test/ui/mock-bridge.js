@@ -201,6 +201,30 @@
     }],
   };
 
+  
+  if (location.search.includes('lang-managed')) {
+    state.extensions.push({
+      id: 'lang-loader', name: 'Language Loader', version: '1.0.0',
+      description: '语言扩展（模拟）', extensions: [], author: 'qa', enabled: true, installed: true,
+      uiLanguage: true, settings: [], commands: [], values: {},
+    });
+    
+    setTimeout(() => {
+      const sel = document.getElementById('selLanguage');
+      const btn = document.querySelector('.lang-pick .sel-btn');
+      const pre = document.createElement('pre');
+      pre.id = 'langDebug';
+      pre.hidden = true;
+      pre.textContent = JSON.stringify({
+        disabled: !!(sel && sel.disabled),
+        btnDisabled: !!(btn && btn.disabled),
+        btnClass: btn ? btn.className : '',
+        opacity: btn ? getComputedStyle(btn).opacity : '',
+      });
+      document.body.appendChild(pre);
+    }, 2500);
+  }
+
   const fmtOf = () => ({
     sampleRate: 48000, channels: 2, bits: 32, isFloat: true,
     exclusive: state.settings.backend === 'wasapi-exclusive', bytesPerFrame: 8,
@@ -278,6 +302,7 @@
       list: async () => state.extensions.map((e) => ({
         id: e.id, name: e.name, version: e.version, description: e.description,
         extensions: e.extensions.slice(), author: e.author, enabled: e.enabled, installed: e.installed,
+        uiLanguage: !!e.uiLanguage,
         settings: e.settings.map((s) => ({ ...s })),
         commands: e.commands.map((c) => ({ ...c })),
         values: { ...e.values },
@@ -306,6 +331,8 @@
           ? { ok: true, message: 'pong' }
           : { ok: true, message: '已清理 3 个缓存文件' };
       },
+      
+      ui: async () => ({ strings: {}, font: '', language: '' }),
     },
     
     eq: {
@@ -2821,7 +2848,7 @@
       check('切换到独占模式（按新规则：暂存，等「应用」）',
         backend.value === 'wasapi-exclusive' && state.settings.backend !== 'wasapi-exclusive',
         `控件=${backend.value} 已落盘=${state.settings.backend}`);
-      check('模式说明更新', ($('backendHint').textContent || '').includes('独占'), $('backendHint').textContent);
+      check('声卡模式说明已移除（用户要求）', !$('backendHint'), 'backendHint 不存在');
 
       
       const dev = $('selDevice');

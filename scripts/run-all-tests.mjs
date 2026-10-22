@@ -23,6 +23,8 @@ const steps = [
   ['扩展（.xtxs 插件规范 / 社区模板 / 真实安装流程）', 'test/extensions-guide-unit.mjs', []],
   ['播放路径归一化（容器解码后覆盖 playPath）', 'test/playable-path-unit.mjs', []],
   ['扩展接口 ext-v2（生命周期 / 设置 / 命令 / 快速钩子）', 'test/extensions-api-unit.mjs', []],
+  ['扩展接口 ext-v2x（界面文字 / 字体 / lang 覆盖）', 'test/extensions-ui-unit.mjs', []],
+  ['语言扩展 lang-loader（.lang 格式 / 损坏识别 / 启动加载）', 'test/extensions-lang-plugin-unit.mjs', []],
   ['扩展测试插件（启动窗口 / 各接口自检 / startup 机制）', 'test/extensions-test-plugin-unit.mjs', []],
   ['IPC 契约（真实 main.js + preload.js）', 'test/main-smoke.mjs', []],
   ['原生任务栏接口（Windows Thumbbar 冒烟）', 'test/taskbar-native-unit.mjs', []],

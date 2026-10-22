@@ -190,7 +190,7 @@ try {
     dir: extensionsRoot,
     getEnabled: () => enabled.slice(),
     saveEnabled: (ids) => { enabled.length = 0; enabled.push(...ids); return Promise.resolve(); },
-    appVersion: '1.0.2-extUpdate',
+    appVersion: '1.0.2-ext-v2x',
     getSettings: (id) => ({ ...(settingsStore[id] || {}) }),
     persistSettings: async (id, values) => { settingsStore[id] = { ...values }; },
     clearSettings: async (id) => { delete settingsStore[id]; },
@@ -215,7 +215,7 @@ try {
     viaHandler && viaHandler.ext === 'flac' &&
     mgr.supportedExts().includes('hello'));
   check('loaded：activate(ctx) 收到 appVersion / extension / settings',
-    loaded.length === 1 && loaded[0].ctx.appVersion === '1.0.2-extUpdate' &&
+    loaded.length === 1 && loaded[0].ctx.appVersion === '1.0.2-ext-v2x' &&
     loaded[0].ctx.extension.id === templateManifest.id &&
     loaded[0].ctx.extension.version === templateManifest.version &&
     loaded[0].ctx.settings.passthroughUnknown === false);

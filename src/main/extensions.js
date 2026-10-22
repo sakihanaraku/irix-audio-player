@@ -29,7 +29,54 @@ const { spawnSync } = require('node:child_process');
 
 const ID_RE = /^[a-z0-9][a-z0-9._-]{1,48}$/i;
 const KEY_RE = /^[a-z0-9][a-z0-9._-]{0,63}$/i;
+const UI_KEY_RE = /^[A-Za-z][A-Za-z0-9._-]{0,80}$/;
 const SETTING_TYPES = ['text', 'number', 'boolean', 'select'];
+
+
+function normalizeUiStrings(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('ui.strings 必须是对象');
+  const entries = Object.entries(raw);
+  if (entries.length > 2000) throw new Error('ui.strings 条目过多');
+  const out = {};
+  for (const [key, value] of entries) {
+    if (!UI_KEY_RE.test(key)) throw new Error(`ui.strings 键名不合法：${key}`);
+    if (typeof value !== 'string') throw new Error(`ui.strings[${key}] 必须是字符串`);
+    const text = value.slice(0, 4096);
+    if (!text.trim()) throw new Error(`ui.strings[${key}] 不能为空`);
+    out[key] = text;
+  }
+  return out;
+}
+
+
+function normalizeUiFont(raw) {
+  if (raw === undefined || raw === null) return '';
+  if (typeof raw !== 'string') throw new Error('ui.font 必须是字符串');
+  const font = raw.trim();
+  if (!font) return '';
+  if (font.length > 200) throw new Error('ui.font 过长');
+  if (/[\u0000-\u001f<>{};]/.test(font)) throw new Error('ui.font 含非法字符');
+  return font;
+}
+
+
+function normalizeUiLanguage(raw) {
+  if (raw === undefined || raw === null) return '';
+  if (typeof raw !== 'string') throw new Error('ui.language 必须是字符串');
+  const code = raw.trim();
+  if (!code) return '';
+  if (!/^[a-z]{2,8}(-[A-Za-z0-9]{2,8})?$/.test(code)) throw new Error('ui.language 不合法');
+  return code;
+}
+
+
+function pickLocalizedText(value, lang) {
+  if (typeof value === 'string') return value;
+  if (!value || typeof value !== 'object') return '';
+  const base = String(lang || 'en').toLowerCase().split('-')[0];
+  const hit = value[base] ?? value.en ?? Object.values(value).find((v) => typeof v === 'string');
+  return typeof hit === 'string' ? hit : '';
+}
 
 
 function normalizeSettings(raw) {
@@ -122,6 +169,8 @@ class Extensions {
     persistSettings = async () => {}, 
     clearSettings = async () => {},   
     log = () => {},                   
+    onUiChanged = () => {},           
+    getLanguage = () => 'en',         
   }) {
     this.dir = dir;                       
     this.getEnabled = getEnabled;         
@@ -131,7 +180,10 @@ class Extensions {
     this.persistSettings = persistSettings;
     this.clearSettings = clearSettings;
     this.log = log;
+    this.onUiChanged = onUiChanged;
+    this.getLanguage = getLanguage;
     this.cache = new Map();               
+    this.uiOverrides = new Map();         
   }
 
   ensureDir() {
@@ -175,6 +227,42 @@ class Extensions {
   }
 
   
+  uiState() {
+    const enabled = new Set(this.getEnabled());
+    const out = { strings: {}, font: '', language: '' };
+    for (const [id, ov] of this.uiOverrides) {
+      if (!enabled.has(id)) continue;
+      Object.assign(out.strings, ov.strings || {});
+      if (ov.font) out.font = ov.font;
+      if (ov.language) out.language = ov.language;
+    }
+    return out;
+  }
+
+  notifyUi() {
+    try { this.onUiChanged(this.uiState()); } catch {  }
+  }
+
+  
+  applyUi(id, patch = {}) {
+    const manifest = this.readManifest(id);
+    if (!manifest) throw new Error('扩展不存在');
+    if (manifest.ui !== true) throw new Error('扩展未声明 ui 能力（在 extension.json 设置 "ui": true）');
+    const cur = this.uiOverrides.get(id) || { strings: {}, font: '', language: '' };
+    if (patch.strings !== undefined) cur.strings = normalizeUiStrings(patch.strings);
+    if (patch.font !== undefined) cur.font = normalizeUiFont(patch.font);
+    if (patch.language !== undefined) cur.language = normalizeUiLanguage(patch.language);
+    this.uiOverrides.set(id, cur);
+    this.notifyUi();
+    return this.uiState();
+  }
+
+  
+  clearUi(id) {
+    if (this.uiOverrides.delete(id)) this.notifyUi();
+  }
+
+  
   contextFor(id, manifest) {
     const rec = this.cache.get(id);
     return {
@@ -188,6 +276,14 @@ class Extensions {
       settings: this.settingsFor(manifest.id),
       log: (...args) => this.log(`[ext:${manifest.id}]`, ...args),
       
+      ui: {
+        setStrings: (strings) => this.applyUi(manifest.id, { strings }),
+        setFont: (font) => this.applyUi(manifest.id, { font }),
+        setLanguage: (language) => this.applyUi(manifest.id, { language }),
+        setTexts: (opts = {}) => this.applyUi(manifest.id, opts || {}),
+        clear: () => this.clearUi(manifest.id),
+      },
+      
     };
   }
 
@@ -195,6 +291,7 @@ class Extensions {
   list() {
     this.ensureDir();
     const enabled = new Set(this.getEnabled());
+    const uiLang = this.uiState().language || this.getLanguage();
     const out = [];
     let names = [];
     try { names = fs.readdirSync(this.dir); } catch { names = []; }
@@ -211,13 +308,15 @@ class Extensions {
           id: manifest.id,
           name: manifest.name || manifest.id,
           version: manifest.version || '',
-          description: manifest.description || '',
+          description: pickLocalizedText(manifest.description, uiLang),
           extensions: Array.isArray(manifest.extensions) ? manifest.extensions : [],
           author: manifest.author || '',
           homepage: manifest.homepage || '',
           license: manifest.license || '',
           minAppVersion: manifest.minAppVersion || '',
           startup: manifest.startup === true,          
+          ui: manifest.ui === true,                    
+          uiLanguage: manifest.uiLanguage === true,     
           settings: normalizeSettings(manifest.settings),
           commands: normalizeCommands(manifest.commands),
           values: this.settingsFor(manifest.id),
@@ -357,7 +456,10 @@ class Extensions {
   
   deactivate(id) {
     const rec = this.cache.get(id);
-    if (!rec) return;
+    if (!rec) {
+      this.clearUi(id);
+      return;
+    }
     this.cache.delete(id);
     try {
       if (rec.module && typeof rec.module.deactivate === 'function') {
@@ -367,6 +469,7 @@ class Extensions {
     } catch (err) {
       this.log(`[ext:${id}] deactivate 失败:`, err && err.message);
     }
+    this.clearUi(id);
   }
 
   
@@ -445,4 +548,5 @@ class Extensions {
 module.exports = {
   Extensions, ID_RE, KEY_RE, SETTING_TYPES,
   normalizeSettings, normalizeCommands, normalizeSettingValue,
+  normalizeUiStrings, normalizeUiFont, normalizeUiLanguage,
 };

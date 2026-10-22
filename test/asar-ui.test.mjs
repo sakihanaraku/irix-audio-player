@@ -62,8 +62,8 @@ const checks = [
         return lic.includes('MIT License') && /Copyright \(c\)/.test(lic) && pkg.license === 'MIT';
       } catch { return false; }
     })()],
-  ['版本号为 1.0.2-extUpdate；标题栏已无版本徽标，版本显示在设置里',
-    JSON.parse(fs.readFileSync(path.join(out, 'package.json'), 'utf8')).version === '1.0.2-extUpdate' &&
+  ['版本号为 1.0.2-ext-v2x；标题栏已无版本徽标，版本显示在设置里',
+    JSON.parse(fs.readFileSync(path.join(out, 'package.json'), 'utf8')).version === '1.0.2-ext-v2x' &&
     
     !html.includes('app-version') && !html.includes('id="appVersion"') &&
     
@@ -129,6 +129,29 @@ const checks = [
     renderer.includes('function setExtStatus') && renderer.includes('entry.appendChild(box)') &&
     css.includes('.ext-settings') && css.includes('.ext-setting') && css.includes('.ext-commands') &&
     i18nSrc.includes("'ext.settingsSaved'") && i18nSrc.includes("'ext.commandDone'")],
+  ['扩展接口 ext-v2x：插件可覆盖界面文字 / 字体 / lang',
+    extSource.includes('normalizeUiStrings') && extSource.includes('uiState') &&
+    extSource.includes('onUiChanged') && extSource.includes('uiOverrides') &&
+    main.includes("ipcMain.handle('ext:ui'") && main.includes('onUiChanged') &&
+    preload.includes("ui: () => ipcRenderer.invoke('ext:ui')") &&
+    renderer.includes('EXT_UI') && renderer.includes('applyExtensionUi') &&
+    renderer.includes("api.on('ext:ui'") && css.includes('var(--ui-font)')],
+  ['插件自身界面文案跟随设置语言（ext.<id>.* 词条 + .lang）',
+    renderer.includes('function extUiText') &&
+    renderer.includes("extUiText(item, 'name'") &&
+    renderer.includes('extUiText(item, `command.') &&
+    i18nSrc.includes("'ext.lang-loader.name'") &&
+    i18nSrc.includes("'ext.lang-loader.command.choose'") &&
+    i18nSrc.includes("'ext.lang-loader.popup.title'")],
+  ['语言扩展安装后禁用内置语言选择，卸载/禁用后恢复',
+    extSource.includes('uiLanguage') &&
+    renderer.includes('refreshLanguageSettingAvailability') &&
+    renderer.includes('e.uiLanguage === true') &&
+    renderer.includes('sel.disabled = managed') &&
+    css.includes('.lang-pick.is-ext-managed') &&
+    !/\.lang-pick\.is-ext-managed select\s*,/.test(css) &&
+    css.includes('.sel-btn:disabled') &&
+    i18nSrc.includes("'set.languageExtManaged'")],
   ['数据安全网：写前自动备份 + 读失败自动从备份恢复',
     main.includes('backupFileBeforeWrite') && main.includes('restoreFromBackup') &&
     main.includes('BACKUPS_DIR_NAME') && main.includes('BACKUP_KEEP')],

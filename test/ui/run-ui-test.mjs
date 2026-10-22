@@ -123,6 +123,14 @@ console.log(`\n${shotOk ? '✓' : '✗'} 界面截图: ${shot} ${shotOk ? `(${(f
 const shotSettings = path.join(artifacts, 'ui-settings.png');
 fs.rmSync(shotSettings, { force: true });
 await runEdge([...commonFlags, '--virtual-time-budget=4000', `--screenshot=${shotSettings}`, `${base}/?mode=settings`]);
+
+const shotLangManaged = path.join(artifacts, 'ui-settings-lang-managed.png');
+fs.rmSync(shotLangManaged, { force: true });
+await runEdge([...commonFlags, '--virtual-time-budget=4000', `--screenshot=${shotLangManaged}`, `${base}/?mode=settings-lang-managed`]);
+console.log(`${fs.existsSync(shotLangManaged) ? '✓' : '✗'} 语言扩展接管截图: ${shotLangManaged}`);
+const domLangManaged = await runEdge([...commonFlags, '--virtual-time-budget=6000', '--dump-dom', `${base}/?mode=settings-lang-managed`]);
+const langDebug = (domLangManaged.out.match(/<pre id="langDebug"[^>]*>([^<]*)<\/pre>/) || [])[1] || '';
+console.log(`${langDebug.includes('"disabled":true') && langDebug.includes('"btnDisabled":true') ? '✓' : '✗'} 语言选择禁用态: ${langDebug || '(未读到)'}`);
 const shotSettingsOk = fs.existsSync(shotSettings) && fs.statSync(shotSettings).size > 5000;
 console.log(`${shotSettingsOk ? '✓' : '✗'} 设置界面截图: ${shotSettings}`);
 

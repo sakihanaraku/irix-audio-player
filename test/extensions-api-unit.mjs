@@ -86,7 +86,7 @@ const manager = new Extensions({
   dir: extRoot,
   getEnabled: () => ['api-demo'],
   saveEnabled: async () => {},
-  appVersion: '1.0.2-extUpdate',
+  appVersion: '1.0.2-ext-v2x',
   getSettings: (id) => ({ ...(saved[id] || {}) }),
   persistSettings: async (id, values) => { persistCount++; saved[id] = { ...values }; },
   clearSettings: async (id) => { delete saved[id]; },
@@ -113,10 +113,10 @@ try {
   const rec = loaded.find((r) => r.manifest.id === 'api-demo');
   check('loaded：require 后调用 activate(ctx)，ctx 含 appVersion/extension/settings/log',
     loaded.length === 1 && rec.module.__activated === 1 &&
-    rec.ctx.appVersion === '1.0.2-extUpdate' &&
+    rec.ctx.appVersion === '1.0.2-ext-v2x' &&
     rec.ctx.extension.id === 'api-demo' && rec.ctx.extension.version === '2.0.0' &&
     rec.ctx.settings.mode === 'a' && typeof rec.ctx.log === 'function' &&
-    logs.some((l) => l.includes('activate api-demo 1.0.2-extUpdate')),
+    logs.some((l) => l.includes('activate api-demo 1.0.2-ext-v2x')),
     logs.join(' | '));
   check('findRecord / findHandler / match 只匹配 .demo',
     !!manager.findRecord('song.demo') && manager.findHandler('song.DEMO') &&

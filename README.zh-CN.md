@@ -2,7 +2,7 @@
 
 **中文** | [English](README.md) | [日本語](README.ja.md)
 
-> 最新版本：**1.0.2-extUpdate**
+> 最新版本：**1.0.2-ext-v2x**
 
 基于**Electron** + **N-API** + **ffmpeg**。(!!Linux版本暂时未稳定故未有构建脚本)
 > 界面：左栏封面 / 信息 / 控件、歌词、WebGL 峰值计与状态格；右栏播放列表 + 文件浏览器。默认窗口 1366×768。
@@ -28,8 +28,8 @@
 | **播放排行** | 按完播次数排行 |
 | **全窗口歌词** | 显示封面 + 标题/艺术家/专辑/歌词 (v1.0.2-release 新增) 背景跟随设置的主背景 |
 | **可安装扩展** | 可安装.xtxs格式的扩展 |
-| **扩展接口 ext-v2** | 生命周期 `activate(ctx)` / `deactivate()`、快速元数据 `readMeta()`、封面 `extractCover()`、文件级后处理 `processAudio()`、声明式设置/命令、`startup:true` 启动激活 (v1.0.2-extUpdate 新增) |
-| **扩展修复** | 修复容器插件文件（如 `.testext` / `.ncm`）加入播放列表后仍把原容器交给 ffmpeg、导致 `Invalid data found` 的问题 (v1.0.2-extUpdate) |
+| **扩展接口 ext-v2** | 生命周期 `activate(ctx)` / `deactivate()`、快速元数据 `readMeta()`、封面 `extractCover()`、文件级后处理 `processAudio()`、声明式设置/命令、`startup:true` 启动激活 (v1.0.2-ext-v2x 新增) |
+| **扩展修复** | 修复容器插件文件（如 `.testext` / `.ncm`）加入播放列表后仍把原容器交给 ffmpeg、导致 `Invalid data found` 的问题 (v1.0.2-ext-v2x) |
 
 ## 扩展（Extensions）
 

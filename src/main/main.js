@@ -234,6 +234,8 @@ function getExtensions() {
       getEnabled: () => (Array.isArray(settings.enabledExtensions) ? settings.enabledExtensions : []),
       saveEnabled: (ids) => { settings.enabledExtensions = ids; return saveSettings(); },
       appVersion: app.getVersion(),
+      
+      getLanguage: () => I18N.resolve(settings.language, typeof app.getLocale === 'function' ? app.getLocale() : 'en'),
       getSettings: (id) => (settings.extensionSettings && settings.extensionSettings[id]) || {},
       persistSettings: async (id, values) => {
         settings.extensionSettings = { ...(settings.extensionSettings || {}), [id]: values };
@@ -253,6 +255,8 @@ function getExtensions() {
         try { console.log('[ext]', text); } catch {  }
         try { debugLog('[ext] ' + text); } catch {  }
       },
+      
+      onUiChanged: (ui) => send('ext:ui', ui),
     });
   }
   return extensions;
@@ -1598,6 +1602,8 @@ function registerIpc() {
     return { ok: true, values: r.values, live: r.live };
   });
   ipcMain.handle('ext:command', async (_e, { id, commandId } = {}) => getExtensions().runCommand(id, commandId));
+  
+  ipcMain.handle('ext:ui', () => getExtensions().uiState());
   ipcMain.handle('app:restart', () => {
     setTimeout(() => { try { app.relaunch(); } catch {  } app.exit(0); }, 60);
     return { ok: true };

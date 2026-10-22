@@ -1,7 +1,7 @@
 {
   "name": "irix-audio-player",
   "productName": "iRix Audio Player",
-  "version": "1.0.2-extUpdate",
+  "version": "1.0.2-ext-v2x",
   "description": "iRix Audio Player —— Electron + N-API 原生音频引擎 + ffmpeg 解码（Windows: WASAPI/DSound/MME，Linux: ALSA）",
   "main": "src/main/main.js",
   "author": "sakihanaraku",

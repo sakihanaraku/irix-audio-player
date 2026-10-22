@@ -2,8 +2,12 @@
 
 [中文](EXTENSIONS.zh-CN.md) | [English](EXTENSIONS.md) | **日本語**
 
-> 対象：**iRix Audio Player 1.0.2-extUpdate 以降** · 拡張インターフェース **ext**
-> ドキュメントバージョン：2026-10-21 · リポジトリ：<https://github.com/sakihanaraku/irix-audio-player>
+> 対象：**iRix Audio Player 1.0.2-ext-v2x 以降** · 拡張インターフェース **ext**
+> ドキュメントバージョン：2026-10-22 · リポジトリ：<https://github.com/sakihanaraku/irix-audio-player>
+
+> **1.0.2-ext-v2x**：任意の ext-v2x UI レイヤーを追加 —— `manifest.ui` / `uiLanguage`、`ctx.ui`
+> （テキスト/フォント/言語の上書き）、および完全な `lang-loader` 言語拡張のサンプル。
+> 既存の ext-v2 プラグインはそのまま互換。既存インターフェースの書き換えはありません。
 
 本ガイドは、iRix Audio Player 用のプラグインを書きたいコミュニティ開発者を対象としています。最小の動作例、マニフェストとモジュールの仕様から、
 設定/コマンド、起動ウィンドウ、デバッグ、投稿の流れまで、すべて現行バージョンの実際の挙動に基づいて説明します。
@@ -96,7 +100,7 @@ deepseek-harness/
   "description": "iRix Audio Player 拡張テンプレート：サンプルコンテナ .hello → 再生可能な音声。decode/readMeta/extractCover/processAudio/ライフサイクル/宣言型設定/コマンドの完全な書き方を収録。",
   "entry": "index.js",
   "extensions": ["hello"],
-  "minAppVersion": "1.0.2-extUpdate",
+  "minAppVersion": "1.0.2-ext-v2x",
   "author": "your-name",
   "license": "MIT",
   "settings": [
@@ -268,6 +272,8 @@ node ..\irix-extension\community\irix-extension-template\make-sample.mjs .\song.
 | `homepage` | 任意 | string | プラグインのホームページ/ソース URL（ローダーは無視、カタログ表示用） |
 | `license` | 任意 | string | ライセンス識別子（ローダーは無視、カタログ表示用） |
 | `startup` | 任意 | boolean | `true` = アプリ起動時に自動で `activate()`（ダイアログ/バックグラウンド補助系プラグイン向け） |
+| `ui` | 任意 | boolean | ext-v2x：`true` のときだけ `ctx.ui` で UI テキスト/フォント/言語を上書き可能（§5.7 参照） |
+| `uiLanguage` | 任意 | boolean | ext-v2x：`true` = この拡張機能が UI 言語を担当。インストール済みかつ有効な間は内蔵の言語選択を無効化 |
 | `settings` | 任意 | array | 宣言型の設定項目（最大 32 項目） |
 | `commands` | 任意 | array | コマンドボタン（最大 16 項目） |
 
@@ -404,7 +410,7 @@ module.exports = {
 ```js
 activate(ctx) {
   // ctx = {
-  //   appVersion: '1.0.2-extUpdate',
+  //   appVersion: '1.0.2-ext-v2x',
   //   extension: { id, name, version, dir },
   //   settings: { ...デフォルト値 + 保存済みの値 },
   //   log: (...args) => void,   // メインプロセスのログ
@@ -426,6 +432,33 @@ onSettingsChanged(values, key) { /* ユーザーが設定を変更 */ }
   プレイリスト追加の失敗は「デコードできません」と表示されます。設定/コマンドのエラーは設定ページのステータス行に表示されます。
 - `process.exit()` を呼んだり、`app.quit()` を呼んだり、OS のダイアログを出したりしないでください。
 - 常駐タイマーを起動したりポートを待ち受けたりしないでください — プラグインは必要なときにだけ呼ばれ、独自のライフサイクル管理はありません。
+
+### 5.7 ext-v2x：UI テキスト / フォント / 言語の上書き（任意）
+
+ext-v2 に対する追加インターフェースです。既存の ext-v2 プラグインはそのまま動作します。
+
+`extension.json` に `"ui": true` を宣言し、`activate` / `onSettingsChanged` / `commands` で `ctx.ui` を使います：
+
+```js
+ctx.ui.setTexts({
+  strings: { 'tip.settings': '設定', 'set.audioMode': '出力モード' },
+  font: '"Yu Gothic UI", sans-serif',
+  language: 'ja',
+});
+// 個別に設定することも可能：
+ctx.ui.setStrings({ 'tip.settings': '設定' }); // 文字列の上書きを丸ごと置換
+ctx.ui.setFont('"Noto Sans JP", sans-serif');
+ctx.ui.setLanguage('ja');
+ctx.ui.clear();
+```
+
+- `strings` のキーはアプリ本体の i18n キー（`tip.*`、`set.*` など）です。値はプレーンテキストのみで、HTML は使えません。
+- 上書きは内蔵言語より優先されます。指定しなかったキーは内蔵テキストのままです。
+- `font` は UI 全体に適用する CSS `font-family` です。空文字で既定に戻ります。
+- `language` は `<html lang>` を設定するだけ（フォント選択/スペルチェック用）で、アプリの「表示言語」設定は変更しません。
+- 制限：最大 2000 文字列、各 4096 文字まで。不正なキー/空値/HTML を含むフォント値はエラーで拒否されます。
+- `deactivate()` で `ctx.ui.clear()` を呼んでください。拡張機能の無効化/削除時にもアプリ側で自動クリアされます。
+- 完全な例：`../irix-extension/qa/lang-loader/` — `lang/*.lang` を読み、起動時に自動ロードし、言語選択ウィンドウを開きます。形式が違うファイルは **破損したファイル** として表示され、絶対に適用されません。
 
 ---
 

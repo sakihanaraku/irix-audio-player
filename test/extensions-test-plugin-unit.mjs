@@ -67,7 +67,7 @@ try {
     Buffer.isBuffer(processed) && processed.toString() === 'abc' && plugin.__test.stats.processAudioCalls >= 1);
 
   const stubCtx = {
-    appVersion: '1.0.2-extUpdate',
+    appVersion: '1.0.2-ext-v2x',
     extension: { id: 'test-interfaces', name: '扩展接口测试插件', version: '1.0.0', dir: pluginDir },
     settings: { verbose: true, marker: 'unit-test' },
     log: () => {},
@@ -111,7 +111,7 @@ try {
     dir: extRoot,
     getEnabled: () => enabled.slice(),
     saveEnabled: async () => {},
-    appVersion: '1.0.2-extUpdate',
+    appVersion: '1.0.2-ext-v2x',
     getSettings: () => ({ verbose: true, marker: 'loader-test' }),
     persistSettings: async () => {},
     log: () => {},
@@ -122,7 +122,7 @@ try {
   const started = manager.activateStartup();
   check('activateStartup：只加载声明 startup 的扩展并调用 activate',
     started.includes(manifest.id) && manager.cache.has(manifest.id) &&
-    manager.cache.get(manifest.id).ctx.appVersion === '1.0.2-extUpdate' &&
+    manager.cache.get(manifest.id).ctx.appVersion === '1.0.2-ext-v2x' &&
     manager.cache.get(manifest.id).ctx.settings.marker === 'loader-test',
     JSON.stringify(started));
   manager.shutdown();
