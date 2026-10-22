@@ -92,6 +92,9 @@
     },
     "nsis": {
       "artifactName": "iRixAudioPlayer-${version}-setup.${ext}",
+      "installerLanguages": ["en_US", "zh_CN", "ja_JP"],
+      "multiLanguageInstaller": true,
+      "displayLanguageSelector": false,
       "oneClick": false,
       "perMachine": false,
       "allowElevation": true,

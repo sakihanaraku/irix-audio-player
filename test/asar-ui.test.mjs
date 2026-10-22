@@ -73,6 +73,18 @@ const checks = [
     fs.existsSync(path.join(out, 'src', 'renderer', 'i18n.js')) &&
     html.includes('src="i18n.js"') && html.includes('id="selLanguage"') &&
     ['zh', 'ja', 'en'].every((l) => i18nSrc.includes(`${l}: {`))],
+  ['NSIS 安装器多语言（跟随系统：en_US / zh_CN / ja_JP，不弹语言选择）',
+    (() => {
+      try {
+        
+        const pkg = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
+        const nsis = (pkg.build && pkg.build.nsis) || {};
+        const langs = nsis.installerLanguages || [];
+        return ['en_US', 'zh_CN', 'ja_JP'].every((l) => langs.includes(l)) &&
+          nsis.multiLanguageInstaller !== false &&
+          nsis.displayLanguageSelector !== true;
+      } catch { return false; }
+    })()],
   ['语言选择器 / 文件浏览器的图标用内联 SVG（Linux 无 emoji 字体时不会显示成豆腐块）',
     html.includes('class="lang-globe"') && !html.includes('🌐') &&
     renderer.includes('br-ico') && !renderer.includes('📁') &&
