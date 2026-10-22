@@ -1,44 +1,43 @@
-# 第三方组件与来源声明（THIRD-PARTY NOTICES）
+# Third-Party Components and Notices
 
-iRix Audio Player 本体以 MIT 发布（见 `LICENSE`）。它**随包分发或运行时依赖**的第三方组件如下。
-本文件随安装包一起分发（`package.json` 的 `build.files` 含它）。
+[中文](THIRD-PARTY-NOTICES.zh-CN.md) | **English** | [日本語](THIRD-PARTY-NOTICES.ja.md)
 
-## 一、随应用分发的组件
+iRix Audio Player itself is released under the MIT license (see `LICENSE`). The following third-party components are **distributed with the package or required at runtime**.
+This file is distributed with the installer (`package.json`'s `build.files` includes it).
 
-| 组件 | 许可 | 说明 / 义务 |
+## 1. Components distributed with the app
+
+| Component | License | Notes / obligations |
 |---|---|---|
-| **Electron** | MIT | 应用外壳。其发行版自带 `LICENSE.electron.txt` 与 `LICENSES.chromium.html`（后者 14.8 MB，覆盖 Chromium 及其全部第三方库），随包一并分发 ✓ |
-| **Chromium** | BSD-3-Clause | Electron 内置；其中包含 Apache-2.0 / LGPL / MIT 等多种许可的库，全部列在 `LICENSES.chromium.html` 里 |
-| **Node.js** | MIT | Electron 内置的运行时 |
-| **Material Symbols / Icons** | Apache-2.0 | 标题栏的「音符」图标使用了其 `music_note` 图形。许可文本见 <https://www.apache.org/licenses/LICENSE-2.0> ；上游仓库 <https://github.com/google/material-design-icons> |
+| **Electron** | MIT | Application shell. Its distribution includes `LICENSE.electron.txt` and `LICENSES.chromium.html` (the latter is 14.8 MB and covers Chromium and all of its third-party libraries); both are distributed with the package ✓ |
+| **Chromium** | BSD-3-Clause | Built into Electron; includes libraries under Apache-2.0 / LGPL / MIT and others, all listed in `LICENSES.chromium.html` |
+| **Node.js** | MIT | Runtime bundled with Electron |
+| **Material Symbols / Icons** | Apache-2.0 | The "music note" icon in the title bar uses its `music_note` glyph. License text: <https://www.apache.org/licenses/LICENSE-2.0>; upstream: <https://github.com/google/material-design-icons> |
 
-> Electron/Chromium/Node 的完整许可文本由 Electron 自己的打包流程提供（见产物根目录的
-> `LICENSE.electron.txt`、`LICENSES.chromium.html`），本文件不重复张贴。
+> Complete license texts for Electron/Chromium/Node are provided by Electron's own packaging process (see `LICENSE.electron.txt` and `LICENSES.chromium.html` in the product root); this file does not reproduce them.
 
-## 二、随包分发的外部程序：FFmpeg / ffprobe（**GPLv3**）
+## 2. External programs distributed with the package: FFmpeg / ffprobe (**GPLv3**)
 
-> ⚠️ **2026-10-16 更正**：本节原先写的是"不随包分发" ✗，**不对** —— 实际 `package.json` 的 `build.extraResources` 会把
-> `vendor/ffmpeg/bin/` 拷进安装包（`resources/ffmpeg/bin/`），`vendor/` 里也确实有这两个二进制。下面是更正后的说明。
+> ⚠️ **Correction 2026-10-16**: this section previously said "not distributed with the package" ✗ — that was **wrong**. In reality `build.extraResources` in `package.json` copies `vendor/ffmpeg/bin/` into the installer (`resources/ffmpeg/bin/`), and `vendor/` does contain those two binaries. The corrected description follows.
 
-| 项目 | 内容 |
+| Item | Details |
 |---|---|
-| 随包分发的文件 | `vendor/ffmpeg/bin/ffmpeg.exe`（61.5 MB）、`vendor/ffmpeg/bin/ffprobe.exe`（77.2 MB） |
-| 构建版本 | `ffmpeg version N-92722-gf22fcd4483`（2018 年构建，gcc 8.2.1） |
-| 关键编译开关 | `--enable-gpl --enable-version3 --enable-libx264 --enable-libmp3lame` → 因此是 **GPLv3**（不是 LGPL）|
-| 许可文本 | 随包附带：[`LICENSES/GPL-3.0.txt`](LICENSES/GPL-3.0.txt) |
-| 与本应用的关系 | 本应用通过**子进程**调用它们（`spawn` / `execFile`），**不链接、不内嵌**其代码 → 属"**独立程序聚合分发**"：GPLv3 **不改变本应用自身的 MIT 许可** ✓，但**分发整个安装包时要同时遵守 GPLv3**（附许可文本 + 提供源码获取方式）✓ |
+| Files distributed | `vendor/ffmpeg/bin/ffmpeg.exe` (61.5 MB), `vendor/ffmpeg/bin/ffprobe.exe` (77.2 MB) |
+| Build version | `ffmpeg version N-92722-gf22fcd4483` (built in 2018 with gcc 8.2.1) |
+| Key configure flags | `--enable-gpl --enable-version3 --enable-libx264 --enable-libmp3lame` → therefore **GPLv3** (not LGPL) |
+| License text | Bundled: [`LICENSES/GPL-3.0.txt`](LICENSES/GPL-3.0.txt) |
+| Relationship to this app | This app invokes them via **child processes** (`spawn` / `execFile`); it does **not link or embed** their code → this is **"aggregate distribution of independent programs"**: GPLv3 **does not change this app's own MIT license** ✓, but **distributing the whole installer must also comply with GPLv3** (include the license text + provide a way to obtain the source) ✓ |
 
-### ffmpeg 的源码获取（GPLv3 要求）
-内置的是 **BtbN 的 Windows 构建**（<https://github.com/BtbN/FFmpeg-Builds>），对应 **FFmpeg 官方源码**（<https://ffmpeg.org/download.html>）+ 上表那条 `configuration:` 里的编译开关。
-任何拿到本安装包的人都可以据此获得**完整对应源码**；若需要我方代为提供，请在 <https://github.com/sakihanaraku/irix-audio-player/issues> 提出。
+### Obtaining the ffmpeg source (GPLv3 requirement)
+The bundled binaries are **BtbN's Windows builds** (<https://github.com/BtbN/FFmpeg-Builds>), corresponding to the **official FFmpeg source** (<https://ffmpeg.org/download.html>) plus the configure flags listed above.
+Anyone who receives this installer can obtain the complete corresponding source from those links; if you need us to provide it, please open an issue at <https://github.com/sakihanaraku/irix-audio-player/issues>.
 
-> 如果你想**减小安装包体积 / 免掉这份 GPL 义务**：删掉 `vendor/ffmpeg/bin/`（约 139 MB）并移除 `package.json` 里的 `build.extraResources`，
-> 应用会自动回落到用户机器上的 ffmpeg（设置里可指定，或走 `AURORA_FFMPEG` / `PATH`）。
+> If you want to **reduce the installer size / avoid this GPL obligation**: delete `vendor/ffmpeg/bin/` (about 139 MB) and remove `build.extraResources` from `package.json`; the app will automatically fall back to the ffmpeg on the user's machine (specified in Settings, or via `AURORA_FFMPEG` / `PATH`).
 
-## 三、本项目的自研部分
+## 3. Original parts of this project
 
-- 原生音频引擎（`native/`，N-API + WASAPI / DirectSound / WinMM / ALSA，另有 Wine 降级链）；
-- 渲染层全部界面代码与自绘 SVG 图标（26 条 `<path>` 中仅上面那一条 `music_note` 来自 Material）；
-- 歌词（LRC）、均衡器（DSP）、音频转换、播放统计等模块；
-- **测试素材全部自造**：`scripts/make-test-media.mjs` 用代码合成音频与封面，不含任何第三方素材；
-- 未内嵌任何第三方字体、图标字体或前端库（无 jQuery / CryptoJS / lodash / Bootstrap / webpack 产物）。
+- Native audio engine (`native/`, N-API + WASAPI / DirectSound / WinMM / ALSA, plus a Wine fallback chain);
+- All renderer UI code and hand-drawn SVG icons (of the 26 `<path>` elements, only the `music_note` above comes from Material);
+- Lyrics (LRC), equalizer (DSP), audio conversion, playback statistics, and other modules;
+- **All test media is generated in-house**: `scripts/make-test-media.mjs` synthesizes audio and cover art in code; it contains no third-party assets;
+- No third-party fonts, icon fonts, or frontend libraries are embedded (no jQuery / CryptoJS / lodash / Bootstrap / webpack output).

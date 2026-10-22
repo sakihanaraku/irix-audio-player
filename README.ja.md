@@ -58,7 +58,7 @@ npm start
 手動ビルドは不要。ビルド済みの完成品を [Release](https://github.com/sakihanaraku/irix-audio-player/releases) からダウンロードできます。
 
 - 動作環境：Windows 10/11 x64、Node ≥ 18；
-- **ffmpeg 同梱**（`vendor/ffmpeg/bin/`、GPLv3 ビルド。[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) を参照）。設定で ffmpeg.exe を指定するか、`AURORA_FFMPEG`（環境変数）で上書き可能。最新ビルドへ差し替えるには `npm run fetch:ffmpeg`；
+- **ffmpeg 同梱**（`vendor/ffmpeg/bin/`、GPLv3 ビルド。[`THIRD-PARTY-NOTICES.ja.md`](THIRD-PARTY-NOTICES.ja.md) を参照）。設定で ffmpeg.exe を指定するか、`AURORA_FFMPEG`（環境変数）で上書き可能。最新ビルドへ差し替えるには `npm run fetch:ffmpeg`；
 - 探索順：明示的な設定 → `AURORA_FFMPEG` → `vendor/ffmpeg/bin` → ワークスペースのツールディレクトリ → `PATH` → 一般的なインストール先。
 
 ## オーディオデバイスの動作モード
@@ -122,7 +122,7 @@ LICENSES/       同梱サードパーティコンポーネントのライセン�
 
 | ファイル | 内容 |
 | --- | --- |
-| [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) | サードパーティコンポーネントとライセンス（同梱配布する GPLv3 ffmpeg の説明を含む） |
+| [`THIRD-PARTY-NOTICES.ja.md`](THIRD-PARTY-NOTICES.ja.md) | サードパーティコンポーネントとライセンス（同梱配布する GPLv3 ffmpeg の説明を含む） |
 | [`EXTENSIONS.ja.md`](EXTENSIONS.ja.md) / [中文](EXTENSIONS.zh-CN.md) / [English](EXTENSIONS.md) | `.xtxs` プラグイン開発ガイド（ext-v2：マニフェスト、インターフェース、設定／コマンド、安全性、パッケージング、投稿） |
 | [irix-extension-template](https://github.com/sakihanaraku/irix-extension-template) | そのまま複製できるプラグイン雛形（独立リポジトリ、中国語／日本語／英語 README） |
 
