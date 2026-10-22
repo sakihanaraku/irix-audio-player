@@ -5,28 +5,28 @@
 > Latest version: **1.0.2-extUpdate**
 
 Based on **Electron** + **N-API** + **ffmpeg**. (!!The Linux version is not stable yet, so there is no build script)
-> UI: left column cover / music info / controls, lyrics, WebGL peak meter and status cells; right column playlist + file browser. Default window 1366×768.
+> UI: left column cover / info / controls, lyrics, WebGL peak meter and status cells; right column playlist + file browser. Default window 1366×768.
 ![Interface](docs/v1.0.2-release-main.png)
-![Lyrics mode (customizable background)](docs/Fullscreen-lrc.png)
+![Fullscreen lyrics (customizable background)](docs/Fullscreen-lrc.png)
 ![Light theme](docs/light-scene.png)
-![Sound card modes](docs/dac-settings.png)
+![Playback modes on Windows](docs/dac-settings.png)
 
 ## Features
 | | |
 | --- | --- |
 | **Formats** | Recognized by ffprobe / `ffmpeg -i`; known to be supported so far: mp3 m4a flac wav ogg wma |
-| **Sound card mode** | WASAPI exclusive / shared, DirectSound, MME; each of the four modes enumerates devices, negotiates formats and probes availability |
-| **Playback** | Drag the seek bar to seek, volume (wheel ±5%), mute (`M`), play mode cycling (No repeat → Repeat all → Repeat one → Shuffle) |
+| **Sound card** | WASAPI exclusive / shared, DirectSound, MME; each of the four modes enumerates devices, negotiates formats and probes availability |
+| **Playback** | Drag the progress bar to seek, volume (wheel ±5%), mute (`M`), repeat mode cycling (no repeat → list repeat → single repeat → shuffle) |
 | **Playlist** | Drag files into the whole window / multi-select / folders, dedup, persistence, drag to reorder, `.playlist` save/load |
-| **Lyrics** | Embedded lyrics → `.lrc` in the same directory → choose a lyrics file manually; current line highlighted + collapsible lyrics offset bar |
+| **Lyrics** | Embedded lyrics → `.lrc` in the same directory → manual selection; current line highlighted + collapsible calibration bar |
 | **Equalizer** | 8 bands (20Hz–19kHz, ±12dB) + preamp, applied in real time, 8 presets, `.eq` config save/load |
 | **Appearance** | 10 preset theme colors + color picker, light/dark theme toggle, custom title bar |
-| **Music info** | Embedded cover + title/artist/album/year/genre/codec/container/sample rate/bit depth/channels/bitrate/duration/path |
+| **Info & cover** | Embedded cover + title/artist/album/year/genre/codec/container/sample rate/bit depth/channels/bitrate/duration/path |
 | **Peak meter** | WebGL (falls back to 2D canvas when unavailable), scale labels -40/-20/-10/-6/-3/0 dBFS, linear amplitude mapping; value floor **-90 dBFS** (= silence, bar width drops to zero), colors follow the theme, 60FPS (if available) |
-| **Convert** | Right-click to convert → FLAC Wave MP3 AAC Vorbis |
+| **Conversion** | Right-click to convert → FLAC Wave MP3 AAC Vorbis |
 | **Play ranking** | Ranked by number of complete plays |
-| **Lyrics mode** | Full-window view with cover + title/artist/album/lyrics (new in v1.0.2-release); the background follows the main background from settings |
-| **Extensions** | Install `.xtxs` extension packages |
+| **Full-window lyrics** | Shows cover + title/artist/album/lyrics (new in v1.0.2-release); the background follows the main background from settings |
+| **Installable extensions** | Extensions in .xtxs format can be installed |
 | **Extension interface ext-v2** | Lifecycle `activate(ctx)` / `deactivate()`, fast metadata `readMeta()`, cover `extractCover()`, file-level post-processing `processAudio()`, declarative settings/commands, `startup:true` activation at startup (new in v1.0.2-extUpdate) |
 | **Extension fix** | Fixed the issue where container plugin files (e.g. `.testext` / `.ncm`) were still handed to ffmpeg as the original container after being added to the playlist, which caused `Invalid data found` (v1.0.2-extUpdate) |
 
@@ -68,7 +68,7 @@ If you'd rather not build manually, download a ready-to-use build from [Releases
 | `directsound` | `IDirectSound8` + notification-point segmented filling | 16bit (converted from f32bit) PCM |
 | `mme` | WinMM `waveOut`, 4-block rotating buffer | 16bit PCM |
 
-The engine buffer (`ringMs`, default 300ms, options 150/300/800/2000) determines both the playback latency and the peak-meter alignment latency. Each mode lets you choose the device / sample rate / bit depth / channels / exclusive period / device buffer separately, and use "Probe capability" to see whether that device actually works.
+The engine buffer (`ringMs`, default 300ms, options 150/300/800/2000) determines both the playback latency and the peak-meter alignment latency. Each mode lets you choose the device / sample rate / bit depth / channels / exclusive period / device buffer separately, and use "Probe capabilities" to see whether that device actually works.
 
 ## Keyboard shortcuts
 
@@ -106,7 +106,7 @@ npm run test:packaged     # real sound output using the bundled ffmpeg + native 
 ## Directory structure
 
 ```
-src/main/       Main process: window and IPC, playback session, playlist, ffmpeg conversion, equalizer, lyrics, play ranking
+src/main/       Main process: window and IPC, playback session, playlist, ffmpeg conversion, EQ, lyrics, stats
 src/preload/    contextBridge allowlist bridge (renderer entry window.aurora)
 src/renderer/   UI: index.html + styles.css + renderer.js + i18n.js (Chinese/Japanese/English)
 native/         N-API audio engine (C++17): WASAPI / DirectSound / MME / ALSA + device enumeration for all four backends
