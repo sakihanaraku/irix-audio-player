@@ -458,7 +458,7 @@ ctx.ui.clear();
 - `language` only sets `<html lang>` (used for font selection / spellcheck), not the app's language setting;
 - limits: 2000 strings, each ≤ 4096 chars; invalid keys/values/HTML-like font values are rejected with an error;
 - call `ctx.ui.clear()` in `deactivate()`; the app also removes the overrides automatically when the extension is disabled or uninstalled;
-- full example: `../irix-extension/qa/lang-loader/` — reads `lang/*.lang`, auto-loads one at startup and opens a language picker; malformed files are shown as **损坏的文件** / **corrupted file** and never applied.
+- full example: [irix-extension-lang-loader](https://github.com/sakihanaraku/irix-extension-lang-loader) — reads `lang/*.lang`, auto-loads one at startup and opens a language picker; malformed files are shown as **损坏的文件** / **corrupted file** and never applied.
 
 ---
 

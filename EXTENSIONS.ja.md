@@ -458,7 +458,7 @@ ctx.ui.clear();
 - `language` は `<html lang>` を設定するだけ（フォント選択/スペルチェック用）で、アプリの「表示言語」設定は変更しません。
 - 制限：最大 2000 文字列、各 4096 文字まで。不正なキー/空値/HTML を含むフォント値はエラーで拒否されます。
 - `deactivate()` で `ctx.ui.clear()` を呼んでください。拡張機能の無効化/削除時にもアプリ側で自動クリアされます。
-- 完全な例：`../irix-extension/qa/lang-loader/` — `lang/*.lang` を読み、起動時に自動ロードし、言語選択ウィンドウを開きます。形式が違うファイルは **破損したファイル** として表示され、絶対に適用されません。
+- 完全な例：[irix-extension-lang-loader](https://github.com/sakihanaraku/irix-extension-lang-loader) — `lang/*.lang` を読み、起動時に自動ロードし、言語選択ウィンドウを開きます。形式が違うファイルは **破損したファイル** として表示され、絶対に適用されません。
 
 ---
 

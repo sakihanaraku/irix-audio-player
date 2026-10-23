@@ -458,7 +458,7 @@ ctx.ui.clear();
 - `language` 只设置 `<html lang>`（影响字体选择/拼写检查），不改程序的「界面语言」设置；
 - 限制：最多 2000 条、每条 ≤ 4096 字符；非法键/空值/含 HTML 的字体值会直接报错拒绝；
 - 在 `deactivate()` 里调用 `ctx.ui.clear()`；禁用/卸载扩展时程序也会自动清除；
-- 完整示例：`../irix-extension/qa/lang-loader/` —— 读取 `lang/*.lang`，启动自动加载，并提供语言选择窗口；格式错误的文件显示为 **损坏的文件**，绝不会被应用。
+- 完整示例：[irix-extension-lang-loader](https://github.com/sakihanaraku/irix-extension-lang-loader) —— 读取 `lang/*.lang`，启动自动加载，并提供语言选择窗口；格式错误的文件显示为 **损坏的文件**，绝不会被应用。
 
 ---
 
