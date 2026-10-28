@@ -3,6 +3,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -100,6 +101,10 @@ class AudioEngine {
   uint32_t pendFrames_ = 0;   
   uint32_t pendOffset_ = 0;   
   double pos_ = 0.0;          
+
+  
+  
+  std::mutex renderMutex_;
 
   std::atomic<float> volume_{1.0f};
   float smoothedVolume_ = 1.0f;

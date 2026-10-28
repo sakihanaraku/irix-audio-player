@@ -7,7 +7,7 @@
   "author": "sakihanaraku",
   "license": "MIT",
   "private": true,
-  "//homepage": "electron-builder 的 deb / pacman 目标（走 FPM）必须有 homepage，否则报 'Please specify project homepage'。想换成你自己的地址就改这一行。",
+  "//homepage": "electron-builder 需要 homepage；换成你自己的项目地址。",
   "homepage": "https://github.com/sakihanaraku/irix-audio-player",
   "scripts": {
     "start": "node scripts/launch.mjs",
@@ -30,14 +30,7 @@
     "dist:nsis": "node scripts/package.mjs --target nsis",
     "dist:sfx": "node scripts/build-sfx.mjs",
     "pack:template-plugin": "node scripts/build-template-plugin.mjs",
-    "dist:linux": "node scripts/package-linux.mjs",
-    "dist:linux:dir": "node scripts/package-linux.mjs --target dir",
-    "make:icons": "python scripts/make-icon.py && python scripts/make-linux-icons.py",
-    "dist:setup": "node scripts/package.mjs --target nsis",
-    "docker:linux": "node scripts/docker-build.mjs linux",
-    "docker:linux:dir": "node scripts/docker-build.mjs linux --dir-only",
-    "docker:win": "node scripts/docker-build.mjs win",
-    "dist:linux:arch": "node scripts/package-linux.mjs --only pacman"
+    "dist:setup": "node scripts/package.mjs --target nsis"
   },
   "devDependencies": {
     "electron": "^38.2.0",
@@ -92,7 +85,11 @@
     },
     "nsis": {
       "artifactName": "iRixAudioPlayer-${version}-setup.${ext}",
-      "installerLanguages": ["en_US", "zh_CN", "ja_JP"],
+      "installerLanguages": [
+        "en_US",
+        "zh_CN",
+        "ja_JP"
+      ],
       "multiLanguageInstaller": true,
       "displayLanguageSelector": false,
       "oneClick": false,
@@ -110,66 +107,6 @@
       "differentialPackage": false,
       "runAfterFinish": true,
       "menuCategory": false
-    },
-    "linux": {
-      "icon": "build/icons",
-      "category": "AudioVideo;Audio;Player",
-      "synopsis": "Music player with N-API audio engine and ffmpeg decoding",
-      "description": "iRix Audio Player — Electron + N-API native audio engine + ffmpeg decoder (ALSA output on Linux)",
-      "maintainer": "sakihanaraku",
-      "desktop": {
-        "entry": {
-          "Name": "iRix Audio Player",
-          "Comment": "Music player (FLAC/WAV/MP3 …)",
-          "Categories": "AudioVideo;Audio;Player;",
-          "Keywords": "music;audio;player;flac;mp3;wav;",
-          "StartupWMClass": "irix-audio-player"
-        }
-      },
-      "target": [
-        {
-          "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "deb",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "tar.gz",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "pacman",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "artifactName": "iRixAudioPlayer-${version}-linux-${arch}.${ext}",
-      "syncDesktopName": true
-    },
-    "pacman": {
-      "artifactName": "iRixAudioPlayer-${version}.pacman",
-      "depends": [
-        "alsa-lib",
-        "gtk3",
-        "nss",
-        "libxss",
-        "libxtst",
-        "xdg-utils",
-        "at-spi2-core",
-        "libcups",
-        "libsecret",
-        "libnotify",
-        "ffmpeg"
-      ]
     }
   },
   "desktopName": "irix-audio-player.desktop",

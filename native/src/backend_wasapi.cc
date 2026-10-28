@@ -237,7 +237,9 @@ class WasapiBackend : public IAudioBackend {
     }
 
     
-    if (!exclusive_) {
+    
+    
+    {
       BYTE* data = nullptr;
       if (SUCCEEDED(render_->GetBuffer(bufferFrames_, &data)) && data) {
         render_->ReleaseBuffer(bufferFrames_, AUDCLNT_BUFFERFLAGS_SILENT);
@@ -437,26 +439,29 @@ class WasapiBackend : public IAudioBackend {
         SetLastError(u8"等待音频事件失败");
         break;
       }
-      UINT32 padding = 0;
-      HRESULT hr = client_->GetCurrentPadding(&padding);
-      if (hr == AUDCLNT_E_DEVICE_INVALIDATED) {
-        SetLastError(u8"音频设备已失效（被拔出或被其它程序独占）");
-        break;
-      }
-      if (FAILED(hr)) {
-        SetLastError(u8"GetCurrentPadding 失败: " + HrToString(hr));
-        break;
-      }
+      
+      
+      
       
       UINT32 avail = 0;
       if (exclusive_) {
-        avail = padding > bufferFrames_ ? bufferFrames_ : padding;
+        avail = bufferFrames_;
       } else {
+        UINT32 padding = 0;
+        HRESULT paddingHr = client_->GetCurrentPadding(&padding);
+        if (paddingHr == AUDCLNT_E_DEVICE_INVALIDATED) {
+          SetLastError(u8"音频设备已失效（被拔出或被其它程序独占）");
+          break;
+        }
+        if (FAILED(paddingHr)) {
+          SetLastError(u8"GetCurrentPadding 失败: " + HrToString(paddingHr));
+          break;
+        }
         avail = padding >= bufferFrames_ ? 0 : bufferFrames_ - padding;
       }
       if (avail == 0) continue;
       BYTE* data = nullptr;
-      hr = render_->GetBuffer(avail, &data);
+      HRESULT hr = render_->GetBuffer(avail, &data);
       if (hr == AUDCLNT_E_DEVICE_INVALIDATED) {
         SetLastError(u8"音频设备已失效（被拔出或被其它程序独占）");
         break;

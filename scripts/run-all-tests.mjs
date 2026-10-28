@@ -12,6 +12,7 @@ const steps = [
   ['ffmpeg 解码 + 格式识别 + 封面', 'test/decode.test.mjs', ['--seconds', '1.0']],
   ['主进程业务流程端到端', 'test/app.test.mjs', []],
   ['多语言词条一致性', 'test/i18n-keys.test.mjs', []],
+  ['公开版 package.json 裁剪（无 Linux 断链脚本）', 'test/public-package-unit.mjs', []],
   ['改名后的数据目录迁移', 'test/migrate-unit.mjs', []],
   ['Wine 兼容层（检测 / 降级链 / 保守默认值）', 'test/wine-unit.mjs', []],
   ['Linux 构建支持（ALSA 后端 / 打包配置 / CI）', 'test/linux-unit.mjs', []],
@@ -41,7 +42,15 @@ if (fs.existsSync(path.join(projectRoot, 'dist', 'win-unpacked', 'resources', 'a
 const summary = [];
 for (const [name, script, args] of steps) {
   console.log(`\n${'='.repeat(72)}\n▶ ${name}\n${'='.repeat(72)}`);
-  const r = spawnSync(process.execPath, [path.join(projectRoot, script), ...args], {
+  const scriptPath = path.join(projectRoot, script);
+  
+  
+  if (!fs.existsSync(scriptPath)) {
+    console.log(`  ⊘ 跳过：${script} 不存在（公开仓库裁剪或未安装）`);
+    summary.push({ name, code: 0, skipped: true });
+    continue;
+  }
+  const r = spawnSync(process.execPath, [scriptPath, ...args], {
     cwd: projectRoot, stdio: 'inherit', windowsHide: true,
   });
   summary.push({ name, code: r.status });
@@ -49,9 +58,15 @@ for (const [name, script, args] of steps) {
 
 console.log(`\n${'='.repeat(72)}\n测试汇总\n${'='.repeat(72)}`);
 let failed = 0;
+let skipped = 0;
 for (const s of summary) {
+  if (s.skipped) {
+    console.log(`  ⊘ 跳过  ${s.name}`);
+    skipped++;
+    continue;
+  }
   console.log(`  ${s.code === 0 ? '✓ 通过' : '✗ 失败'}  ${s.name}`);
   if (s.code !== 0) failed++;
 }
-console.log(`\n${failed ? `✗ ${failed} 项失败` : '✓ 全部通过'}`);
+console.log(`\n${failed ? `✗ ${failed} 项失败` : '✓ 全部通过'}${skipped ? `（${skipped} 项因文件不存在跳过）` : ''}`);
 process.exit(failed ? 1 : 0);

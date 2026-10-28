@@ -86,6 +86,7 @@ AudioEngine::AudioEngine(uint16_t inputChannels, const DeviceFormat& device, uin
 }
 
 void AudioEngine::SetInputFormat(uint32_t sampleRate, uint16_t channels) {
+  std::lock_guard<std::mutex> lock(renderMutex_);
   if (channels) inputChannels_ = std::min<uint16_t>(channels, kMaxChannels);
   if (sampleRate) inRate_ = sampleRate;
   ring_.Reset(ring_.CapacityFrames(), inputChannels_);
@@ -124,6 +125,9 @@ uint32_t AudioEngine::Write(const float* src, uint32_t frames) {
 }
 
 void AudioEngine::Flush() {
+  
+  
+  std::lock_guard<std::mutex> lock(renderMutex_);
   ring_.Clear();
   pendFrames_ = 0;
   pendOffset_ = 0;
@@ -176,6 +180,8 @@ uint32_t AudioEngine::FillPending(uint32_t needFrames) {
 }
 
 void AudioEngine::RenderToDevice(uint8_t* dst, uint32_t frames) {
+  
+  std::lock_guard<std::mutex> lock(renderMutex_);
   if (!dst || frames == 0) return;
   const uint32_t outCh = dev_.channels;
   const uint32_t bpf = dev_.BytesPerFrame();
