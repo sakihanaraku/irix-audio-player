@@ -11,6 +11,8 @@ const require = createRequire(import.meta.url);
 const Module = require('node:module');
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+process.env.AURORA_ALLOW_IPC_PATHS = '1';
+
 const checks = [];
 const check = (name, ok, detail = '') => {
   checks.push({ name, ok: !!ok, detail: String(detail) });
@@ -30,6 +32,7 @@ const invokedChannels = [];
 const sentChannels = [];
 let windowInstance = null;
 let readyCallback = null;
+let lastMenu = null;
 
 class FakeWebContents {
   constructor() { this.listeners = {}; }
@@ -81,6 +84,7 @@ const fakeElectron = {
     whenReady: () => ({ then: (cb) => { readyCallback = cb; return { catch: () => {} }; } }),
     getPath: (name) => (name === 'userData' ? userData : projectRoot),
     getVersion: () => '1.0.0',
+    isPackaged: true,
     
     setAppUserModelId: (id) => { globalThis.__aumid = id; },
     
@@ -101,7 +105,10 @@ const fakeElectron = {
       return { canceled: true };
     },
   },
-  Menu: { setApplicationMenu: () => {}, buildFromTemplate: (t) => t },
+  Menu: {
+    setApplicationMenu: (menu) => { lastMenu = menu; },
+    buildFromTemplate: (t) => t,
+  },
   shell: { openExternal: () => {}, showItemInFolder: () => {} },
   
   nativeImage: {
@@ -164,8 +171,9 @@ check('页面由本地 http 承载（file:// 是 opaque origin，Media Session /
   /^http:\/\/127\.0\.0\.1:\d+\/index\.html$/.test(loadedTarget), loadedTarget);
 check('窗口使用 preload 且开启上下文隔离',
   windowInstance?.options?.webPreferences?.contextIsolation === true &&
+  windowInstance?.options?.webPreferences?.sandbox === true &&
   (windowInstance?.options?.webPreferences?.preload || '').includes('preload'),
-  JSON.stringify({ contextIsolation: windowInstance?.options?.webPreferences?.contextIsolation }));
+  JSON.stringify({ contextIsolation: windowInstance?.options?.webPreferences?.contextIsolation, sandbox: windowInstance?.options?.webPreferences?.sandbox }));
 
 
 console.log('\n[2] 加载 src/preload/preload.js（假 contextBridge）');
@@ -443,6 +451,17 @@ check('坏 .eq 文件被拒绝且报错', !!eqBadRes.error && !eqBadRes.config, 
     check('player:play 不会因为未声明变量报 ReferenceError',
       !/ReferenceError/.test(String(playRes)), String(playRes).slice(0, 80));
     await exposed.api.player.stop().catch(() => {});
+
+    
+    if (id) {
+      const convName = `smoke-convert-${Date.now()}`;
+      const conv = await exposed.api.convert.start(id, 'wav', { fileName: convName });
+      check('convert:start 真实转换成功',
+        !!(conv && conv.ok && conv.path && fs.existsSync(conv.path)),
+        conv ? `ok=${conv.ok} path=${conv.path || ''} error=${conv.error || ''}` : 'null');
+      if (conv && conv.ok && conv.path) fs.rmSync(conv.path, { force: true });
+      check('convert:start 转换后清理临时产物', !(conv && conv.ok && conv.path && fs.existsSync(conv.path)));
+    }
     
   }
 }
@@ -543,6 +562,15 @@ check('Wine 兼容模式默认 auto 且标注独占不可用',
   `mode=${wInfo.mode} unsupported=${wInfo.unsupported.join(',')}`);
 check('settings:set 会回传 Wine 状态（界面据此刷新）',
   typeof exposed.api.settings.set === 'function', '');
+
+
+await exposed.api.settings.set({ language: 'ja' });
+const menuText = JSON.stringify(lastMenu || []);
+check('原生菜单跟随语言设置重建（ja）',
+  menuText.includes('ファイル') && menuText.includes('再生') && !menuText.includes('文件'), menuText.slice(0, 160));
+check('生产构建菜单隐藏 reload / DevTools',
+  !menuText.includes('toggleDevTools') && !menuText.includes('reload'));
+await exposed.api.settings.set({ language: 'zh' });
 const maxEvents = sentEvents.filter((e) => e.channel === 'window:maximized').length;
 check('最大化状态已推送到渲染层', maxEvents >= 2, `${maxEvents} 次 window:maximized 事件`);
 

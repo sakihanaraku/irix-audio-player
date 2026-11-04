@@ -13,6 +13,7 @@ const steps = [
   ['主进程业务流程端到端', 'test/app.test.mjs', []],
   ['多语言词条一致性', 'test/i18n-keys.test.mjs', []],
   ['公开版 package.json 裁剪（无 Linux 断链脚本）', 'test/public-package-unit.mjs', []],
+  ['设置/播放列表原子写入与跨平台路径键', 'test/persistence-unit.mjs', []],
   ['改名后的数据目录迁移', 'test/migrate-unit.mjs', []],
   ['Wine 兼容层（检测 / 降级链 / 保守默认值）', 'test/wine-unit.mjs', []],
   ['Linux 构建支持（ALSA 后端 / 打包配置 / CI）', 'test/linux-unit.mjs', []],

@@ -27,6 +27,7 @@ const ffmpeg = read('src/main/ffmpeg.js');
 const css = read('src/renderer/styles.css');
 const preload = read('src/preload/preload.js');
 const playlistSrc = read('src/main/playlist.js');
+const atomicSrc = read('src/main/atomic-write.js');
 const playerSrc = read('src/main/player.js');
 const i18nSrc = read('src/renderer/i18n.js');
 const extSource = read('src/main/extensions.js');
@@ -155,6 +156,26 @@ const checks = [
   ['数据安全网：写前自动备份 + 读失败自动从备份恢复',
     main.includes('backupFileBeforeWrite') && main.includes('restoreFromBackup') &&
     main.includes('BACKUPS_DIR_NAME') && main.includes('BACKUP_KEEP')],
+  ['持久化：设置/播放列表串行 + 临时文件 rename 原子写',
+    main.includes('atomicWriteFile') && main.includes('settingsWriteChain') && main.includes('settingsDirty') &&
+    playlistSrc.includes('atomicWriteFile') && playlistSrc.includes('_writeChain') && playlistSrc.includes('_dirty') &&
+    atomicSrc.includes('handle.sync()') && atomicSrc.includes('renameWithRetry')],
+  ['跨平台路径键：Linux 保留大小写，Windows/macOS 忽略大小写',
+    playlistSrc.includes('trackPathKey') && playlistSrc.includes("platform === 'win32' || platform === 'darwin'") &&
+    main.includes('trackPathKey')],
+  ['原生菜单跟随语言 + 生产构建隐藏 DevTools/reload',
+    main.includes('function buildApplicationMenu') && main.includes("menuLabel('menu.file')") &&
+    main.includes('menuLabel') && !main.includes("label: '文件'") &&
+    main.includes('app.isPackaged') && main.includes('toggleDevTools') && main.includes('AURORA_SHOW_DEV_MENU')],
+  ['转换任务退出时取消（避免 ffmpeg 孤儿进程）',
+    main.includes('function cancelRunningConvert') && main.includes("app.on('before-quit'") &&
+    main.includes('cancelRunningConvert()')],
+  ['格式转换先解析扩展容器（.ncm/.testext 不把原容器交给 ffmpeg）',
+    main.includes('resolvePlayablePath(srcPath)') && main.includes('resolvePlayableTarget(') &&
+    main.includes('dir = path.dirname(srcPath || src)')],
+  ['Renderer 安全加固：sandbox + 导航白名单 + 拒绝 webview/权限 + 测试路径开关',
+    main.includes('sandbox: true') && main.includes('ownFileUrl') && main.includes('will-attach-webview') &&
+    main.includes('setPermissionRequestHandler') && main.includes('ALLOW_IPC_PATHS') && main.includes('AURORA_ALLOW_IPC_PATHS')],
   ['渲染层由本地 http(127.0.0.1) 承载（file:// 是 opaque origin ✗ → 媒体元素/媒体键/媒体卡片全被拒）',
     main.includes('startRendererServer') && main.includes('127.0.0.1') &&
     main.includes('loadURL(') && main.includes('rendererServer.close')],

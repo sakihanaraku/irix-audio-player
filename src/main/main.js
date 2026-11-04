@@ -10,7 +10,8 @@ const fsp = require('node:fs/promises');
 const { resolveTools, probeFile, extractCover } = require('./ffmpeg');
 const convert = require('./convert');
 const lyrics = require('./lyrics');
-const { Playlist } = require('./playlist');
+const { Playlist, trackPathKey } = require('./playlist');
+const { atomicWriteFile } = require('./atomic-write');
 const I18N = require('../renderer/i18n');
 const { PlayerSession } = require('./player');
 const { Extensions } = require('./extensions');
@@ -49,6 +50,18 @@ const APP_ROOT_UNPACKED = APP_ROOT.includes('app.asar')
   : APP_ROOT;
 const RESOURCES_DIR = process.resourcesPath || '';
 const SELFTEST = process.argv.includes('--selftest');
+
+const ALLOW_IPC_PATHS = SELFTEST || process.env.AURORA_ALLOW_IPC_PATHS === '1';
+
+
+
+app.on('web-contents-created', (_event, contents) => {
+  try { contents.on('will-attach-webview', (event) => event.preventDefault()); } catch {  }
+  try {
+    contents.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+    contents.session.setPermissionCheckHandler(() => false);
+  } catch {  }
+});
 
 const APP_DISPLAY_NAME = 'iRix Audio Player';
 const DATA_DIR_NAME = 'iRixAudioPlayer-data';
@@ -225,6 +238,11 @@ let settings = { ...DEFAULT_SETTINGS };
 let playlist = null;
 let player = null;
 let extensions = null;
+let settingsWriteChain = Promise.resolve();
+let settingsDirty = false;
+let settingsLastSaveError = null;
+let runningConvert = null;
+let appQuitting = false;
 
 
 function getExtensions() {
@@ -256,7 +274,10 @@ function getExtensions() {
         try { debugLog('[ext] ' + text); } catch {  }
       },
       
-      onUiChanged: (ui) => send('ext:ui', ui),
+      onUiChanged: (ui) => {
+        send('ext:ui', ui);
+        try { buildApplicationMenu(); } catch {  }
+      },
     });
   }
   return extensions;
@@ -420,6 +441,55 @@ function mt(key, vars) {
   let locale = '';
   try { locale = app.getLocale(); } catch {  }
   return I18N.translate(I18N.resolve(lang, locale), key, vars);
+}
+
+
+function menuLabel(key) {
+  try {
+    if (extensions) {
+      const ui = extensions.uiState();
+      if (ui && ui.strings && typeof ui.strings[key] === 'string' && ui.strings[key]) return ui.strings[key];
+      
+      if (ui && ui.language) {
+        const text = I18N.translate(I18N.resolve(ui.language, 'en'), key);
+        if (text !== key) return text;
+      }
+    }
+  } catch {  }
+  return mt(key);
+}
+
+function buildApplicationMenu() {
+  const devMenu = !app.isPackaged || process.env.AURORA_SHOW_DEV_MENU === '1';
+  const viewSubmenu = [];
+  if (devMenu) {
+    viewSubmenu.push({ role: 'reload' }, { role: 'toggleDevTools' }, { type: 'separator' });
+  }
+  viewSubmenu.push({ label: menuLabel('menu.fullscreen'), role: 'togglefullscreen' });
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    {
+      label: menuLabel('menu.file'),
+      submenu: [
+        { label: menuLabel('menu.addMusic'), accelerator: 'CmdOrCtrl+O', click: () => send('menu:add-files') },
+        { label: menuLabel('menu.clearPlaylist'), click: async () => { await playlist.clear(); send('playlist:changed', playlist.list()); } },
+        { type: 'separator' },
+        { label: menuLabel('menu.quit'), role: 'quit' },
+      ],
+    },
+    {
+      label: menuLabel('menu.playback'),
+      submenu: [
+        { label: menuLabel('menu.playPause'), accelerator: 'Space', click: () => send('menu:toggle') },
+        { label: menuLabel('menu.stop'), click: () => player.stop() },
+        { label: menuLabel('menu.previous'), click: () => send('menu:prev') },
+        { label: menuLabel('menu.next'), click: () => send('menu:next') },
+      ],
+    },
+    {
+      label: menuLabel('menu.view'),
+      submenu: viewSubmenu,
+    },
+  ]));
 }
 
 
@@ -599,11 +669,35 @@ async function loadSettings() {
 }
 
 async function saveSettings() {
-  try {
-    await fsp.mkdir(path.dirname(settingsFile()), { recursive: true });
-    backupFileBeforeWrite(settingsFile());      
-    await fsp.writeFile(settingsFile(), JSON.stringify(settings, null, 2), 'utf8');
-  } catch {  }
+  
+  
+  settingsDirty = true;
+  settingsWriteChain = settingsWriteChain
+    .catch(() => {  })
+    .then(async () => {
+      while (settingsDirty) {
+        settingsDirty = false;
+        try {
+          await fsp.mkdir(path.dirname(settingsFile()), { recursive: true });
+          backupFileBeforeWrite(settingsFile());      
+          await atomicWriteFile(settingsFile(), JSON.stringify(settings, null, 2));
+          settingsLastSaveError = null;
+        } catch (err) {
+          settingsLastSaveError = err;
+          console.error('settings: 写入失败:', err.message);
+        }
+      }
+    });
+  return settingsWriteChain;
+}
+
+
+function cancelRunningConvert() {
+  const job = runningConvert;
+  runningConvert = null;
+  if (!job) return false;
+  try { job.cancel(); } catch {  }
+  return true;
 }
 
 function refreshTools() {
@@ -883,7 +977,7 @@ function createWindow() {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
       spellcheck: false,
     },
   });
@@ -905,12 +999,15 @@ function createWindow() {
   updateTaskbarButtons();
 
   const indexFile = path.join(__dirname, '..', 'renderer', 'index.html');
+  const ownFileUrl = require('node:url').pathToFileURL(indexFile).href;
+  let rendererOrigin = '';
   startRendererServer().then((port) => {
     if (port) {
-      mainWindow.loadURL('http://127.0.0.1:' + port + '/index.html').catch(() => {
+      rendererOrigin = 'http://127.0.0.1:' + port;
+      mainWindow.loadURL(rendererOrigin + '/index.html').catch(() => {
         try { mainWindow.loadFile(indexFile); } catch {  }
       });
-      debugLog('renderer 走 http://127.0.0.1:' + port);
+      debugLog('renderer 走 ' + rendererOrigin);
     } else {
       mainWindow.loadFile(indexFile);
       debugLog('renderer 退回 file://（http 服务启动失败）');
@@ -933,10 +1030,26 @@ function createWindow() {
 
   
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (url.startsWith('file:')) return;      
+    let allowed = false;
+    try {
+      const u = new URL(url);
+      allowed = u.href === ownFileUrl ||
+        (rendererOrigin && u.origin === rendererOrigin && u.pathname === '/index.html');
+    } catch {  }
+    if (allowed) return;
     event.preventDefault();
     openExternalSafely(url);
   });
+
+  
+  if (app.isPackaged) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      const key = String(input.key || '').toLowerCase();
+      const devToolsChord = key === 'f12' ||
+        (input.control && input.shift && (key === 'i' || key === 'j' || key === 'c'));
+      if (devToolsChord) event.preventDefault();
+    });
+  }
 
   
   const pushMaximized = () => send('window:maximized', !!mainWindow?.isMaximized());
@@ -1016,7 +1129,16 @@ function registerIpc() {
     };
   });
 
-  ipcMain.handle('ffmpeg:set', async (_e, { ffmpegPath }) => {
+  ipcMain.handle('ffmpeg:set', async (_e, { ffmpegPath } = {}) => {
+    
+    if (!ALLOW_IPC_PATHS) {
+      return { path: tools.ffmpeg, probePath: tools.ffprobe, version: tools.version, ok: !!tools.ffmpeg, error: '请使用浏览按钮选择 ffmpeg' };
+    }
+    if (ffmpegPath) {
+      let stat = null;
+      try { stat = fs.statSync(ffmpegPath); } catch {  }
+      if (!stat || !stat.isFile()) return { path: tools.ffmpeg, probePath: tools.ffprobe, version: tools.version, ok: !!tools.ffmpeg, error: 'ffmpeg 不存在' };
+    }
     settings.ffmpegPath = ffmpegPath || '';
     await saveSettings();
     refreshTools();
@@ -1038,15 +1160,27 @@ function registerIpc() {
 
   ipcMain.handle('settings:get', () => settings);
   ipcMain.handle('settings:set', async (_e, patch) => {
+    patch = patch && typeof patch === 'object' && !Array.isArray(patch) ? patch : {};
+    
+    if (!ALLOW_IPC_PATHS && Object.prototype.hasOwnProperty.call(patch, 'ffmpegPath')) {
+      patch = { ...patch };
+      delete patch.ffmpegPath;
+    }
     const prevKey = player.settingsKey(settings);
     settings = { ...settings, ...patch };
     await saveSettings();
     if ('wineCompat' in patch || 'backend' in patch) applyWineCompat();   
+    if ('language' in patch) {
+      try { buildApplicationMenu(); } catch {  }
+    }
     const changed = player.settingsKey(settings) !== prevKey;
     
     
     if ('volume' in patch || 'muted' in patch) player.setVolume(effectiveVolume(settings));
-    return { settings, audioSettingsChanged: changed, wine: wineInfoForUi() };
+    return {
+      settings, audioSettingsChanged: changed, wine: wineInfoForUi(),
+      saveError: settingsLastSaveError ? String(settingsLastSaveError.message || settingsLastSaveError) : null,
+    };
   });
 
   ipcMain.handle('devices:list', (_e, { backend }) => player.listDevices(backend || settings.backend));
@@ -1367,7 +1501,7 @@ function registerIpc() {
     const defaultName =
       `iRix-EQ-${stamp.getFullYear()}${pad(stamp.getMonth() + 1)}${pad(stamp.getDate())}` +
       `-${pad(stamp.getHours())}${pad(stamp.getMinutes())}.eq`;
-    let target = preset;
+    let target = preset && ALLOW_IPC_PATHS ? preset : '';
     if (!target) {
       let baseDir = '';
       try { baseDir = app.getPath('music'); } catch {  }
@@ -1395,7 +1529,7 @@ function registerIpc() {
 
   
   ipcMain.handle('eq:load', async (_e, { filePath: preset } = {}) => {
-    let target = preset;
+    let target = preset && ALLOW_IPC_PATHS ? preset : '';
     if (!target) {
       const res = await dialog.showOpenDialog(mainWindow, {
         title: mt('dlg.openEq'),
@@ -1456,7 +1590,7 @@ function registerIpc() {
     const defaultName =
       `iRix-播放列表-${stamp.getFullYear()}${pad(stamp.getMonth() + 1)}${pad(stamp.getDate())}` +
       `-${pad(stamp.getHours())}${pad(stamp.getMinutes())}.playlist`;
-    let target = preset;
+    let target = preset && ALLOW_IPC_PATHS ? preset : '';
     if (!target) {
       let musicDir = '';
       try { musicDir = app.getPath('music'); } catch {  }
@@ -1484,7 +1618,7 @@ function registerIpc() {
 
   
   ipcMain.handle('playlist:load', async (_e, { filePath: preset } = {}) => {
-    let target = preset;
+    let target = preset && ALLOW_IPC_PATHS ? preset : '';
     if (!target) {
       const res = await dialog.showOpenDialog(mainWindow, {
         title: mt('dlg.openList'),
@@ -1620,7 +1754,7 @@ function registerIpc() {
 
   
   
-  let runningConvert = null;
+  
 
   ipcMain.handle('convert:formats', () => ({
     formats: convert.FORMATS.map((f) => ({
@@ -1631,18 +1765,28 @@ function registerIpc() {
   }));
 
   ipcMain.handle('convert:start', async (_e, { trackId, formatId, options } = {}) => {
+    if (appQuitting) return { ok: false, error: '应用正在退出' };
     const track = trackId ? playlist.get(trackId) : null;
     if (!track) return { ok: false, error: mt('err.noTrack') };
     const fmt = convert.formatById(formatId);
     if (!fmt) return { ok: false, error: mt('err.badFormat') };
     if (!track.ok) return { ok: false, error: track.error || mt('pl.undecodable') };
     if (!tools.ffmpeg) return { ok: false, error: mt('err.noFfmpeg') };
-    if (runningConvert) runningConvert.cancel();                  
+    if (runningConvert) cancelRunningConvert();
 
-    const src = track.playPath || track.path;
-    const dir = path.dirname(src);                                 
+    
+    
+    const srcPath = track.path || track.playPath;
+    let src = track.playPath || srcPath;
+    try {
+      const target = resolvePlayableTarget(await resolvePlayablePath(srcPath), track);
+      if (target && target.path) src = target.path;
+    } catch (err) {
+      debugLog('convert: 解析可播放路径失败，回退原文件: ' + err.message);
+    }
+    const dir = path.dirname(srcPath || src);                      
     const fallbackName = sanitizeFileName(
-      [track.artist, track.title].filter(Boolean).join(' - ') || path.basename(src, path.extname(src)));
+      [track.artist, track.title].filter(Boolean).join(' - ') || path.basename(srcPath || src, path.extname(srcPath || src)));
     const base = sanitizeFileName(String(options?.fileName || '').trim() || fallbackName);
     const out = convert.targetPath(dir, base, fmt.ext);
 
@@ -1656,7 +1800,12 @@ function registerIpc() {
       options: options || {},
       duration: track.duration || 0,
       onProgress: (p) => send('convert:progress', { progress: p, phase: 'encoding' }),
-      onSpawn: (c) => { runningConvert = { cancel: () => c.cancel() }; },
+      onSpawn: (c) => {
+        runningConvert = { cancel: () => c.cancel() };
+        if (appQuitting) {   
+          cancelRunningConvert();
+        }
+      },
     });
     runningConvert = null;
     const ms = Date.now() - started;
@@ -1670,10 +1819,38 @@ function registerIpc() {
   });
 
   ipcMain.handle('convert:cancel', () => {
-    if (runningConvert) { runningConvert.cancel(); runningConvert = null; return { ok: true, cancelled: true }; }
-    
-    return { ok: true, cancelled: false };
+    return { ok: true, cancelled: cancelRunningConvert() };
   });
+
+  
+  function lyricsKeys(trackPath) {
+    const exact = trackPathKey(trackPath);
+    const legacy = String(trackPath || '').toLowerCase();
+    return exact === legacy ? [exact] : [exact, legacy];
+  }
+  function lyricsPickedFor(trackPath) {
+    const picks = settings.lyricsPicks || {};
+    for (const key of lyricsKeys(trackPath)) {
+      if (typeof picks[key] === 'string' && picks[key]) return picks[key];
+    }
+    return null;
+  }
+  function setLyricsPicked(trackPath, file) {
+    const [exact] = lyricsKeys(trackPath);
+    const next = { ...(settings.lyricsPicks || {}) };
+    for (const key of lyricsKeys(trackPath)) delete next[key];
+    next[exact] = file;
+    settings.lyricsPicks = next;
+  }
+  function forgetLyricsPicked(trackPath) {
+    const keys = lyricsKeys(trackPath);
+    const picks = settings.lyricsPicks || {};
+    if (!keys.some((key) => picks[key])) return false;
+    const next = { ...picks };
+    for (const key of keys) delete next[key];
+    settings.lyricsPicks = next;
+    return true;
+  }
 
   
   
@@ -1682,7 +1859,7 @@ function registerIpc() {
     const track = trackId ? playlist.get(trackId) : null;
     if (!track) return { found: false, reason: 'no-track' };
 
-    const picked = (settings.lyricsPicks || {})[String(track.path).toLowerCase()];
+    const picked = lyricsPickedFor(track.path);
     if (picked && fs.existsSync(picked)) {
       const raw = lyrics.readLrc(picked);
       if (raw && raw.trim()) {
@@ -1708,7 +1885,7 @@ function registerIpc() {
     const file = res.filePaths[0];
     const raw = lyrics.readLrc(file);
     if (!raw || !raw.trim()) return { ok: false, error: mt('err.lyricsUnreadable') };
-    settings.lyricsPicks = { ...(settings.lyricsPicks || {}), [String(track.path).toLowerCase()]: file };
+    setLyricsPicked(track.path, file);
     await saveSettings();
     return { ok: true, ...lyrics.parseLyricsText(raw), file, source: 'picked' };
   });
@@ -1717,13 +1894,7 @@ function registerIpc() {
   ipcMain.handle('lyrics:forget', async (_e, { trackId } = {}) => {
     const track = trackId ? playlist.get(trackId) : null;
     if (!track) return { ok: false };
-    const key = String(track.path).toLowerCase();
-    if (settings.lyricsPicks && settings.lyricsPicks[key]) {
-      const next = { ...settings.lyricsPicks };
-      delete next[key];
-      settings.lyricsPicks = next;
-      await saveSettings();
-    }
+    if (forgetLyricsPicked(track.path)) await saveSettings();
     return { ok: true };
   });
 
@@ -1744,7 +1915,7 @@ function registerIpc() {
     const file = resolved.file || lyrics.lrcPathFor(track);
     const saved = lyrics.saveLyrics(file, text);
     if (!saved.ok) return saved;
-    settings.lyricsPicks = { ...(settings.lyricsPicks || {}), [String(track.path).toLowerCase()]: file };
+    setLyricsPicked(track.path, file);
     await saveSettings();
     return { ok: true, file };
   });
@@ -1827,35 +1998,7 @@ if (!gotLock) {
     player.setEq(settings.eq || eq.defaultEqConfig());       
     wirePlayerEvents();
 
-    Menu.setApplicationMenu(Menu.buildFromTemplate([
-      {
-        label: '文件',
-        submenu: [
-          { label: '添加音乐…', accelerator: 'CmdOrCtrl+O', click: () => send('menu:add-files') },
-          { label: '清空播放列表', click: async () => { await playlist.clear(); send('playlist:changed', playlist.list()); } },
-          { type: 'separator' },
-          { label: '退出', role: 'quit' },
-        ],
-      },
-      {
-        label: '播放',
-        submenu: [
-          { label: '播放/暂停', accelerator: 'Space', click: () => send('menu:toggle') },
-          { label: '停止', click: () => player.stop() },
-          { label: '上一首', click: () => send('menu:prev') },
-          { label: '下一首', click: () => send('menu:next') },
-        ],
-      },
-      {
-        label: '视图',
-        submenu: [
-          { role: 'reload' },
-          { role: 'toggleDevTools' },
-          { type: 'separator' },
-          { role: 'togglefullscreen' },
-        ],
-      },
-    ]));
+    buildApplicationMenu();
 
     registerIpc();
     createWindow();
@@ -1899,6 +2042,8 @@ app.on('window-all-closed', () => {
   });
 
   app.on('before-quit', () => {
+    appQuitting = true;
+    cancelRunningConvert();
     if (player) player.dispose();
   });
 }

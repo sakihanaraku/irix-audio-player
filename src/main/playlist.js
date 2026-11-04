@@ -7,9 +7,20 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const { probeFile, KNOWN_EXTENSIONS } = require('./ffmpeg');
+const { atomicWriteFile } = require('./atomic-write');
 
-function idFor(p) {
-  return crypto.createHash('sha1').update(path.resolve(p).toLowerCase()).digest('hex').slice(0, 16);
+
+
+function idFor(p, platform = process.platform) {
+  const resolved = path.resolve(p);
+  const key = platform === 'win32' || platform === 'darwin' ? resolved.toLowerCase() : resolved;
+  return crypto.createHash('sha1').update(key).digest('hex').slice(0, 16);
+}
+
+
+function trackPathKey(p, platform = process.platform) {
+  const resolved = path.resolve(String(p || ''));
+  return platform === 'win32' || platform === 'darwin' ? resolved.toLowerCase() : resolved;
 }
 
 async function walkForAudio(dir, out, depth = 0, limit = 5000) {
@@ -37,6 +48,9 @@ class Playlist {
   constructor(file) {
     this.file = file;
     this.items = [];
+    this._writeChain = Promise.resolve();
+    this._dirty = false;
+    this.lastSaveError = null;
   }
 
   load() {
@@ -44,7 +58,13 @@ class Playlist {
     try {
       raw = fs.readFileSync(this.file, 'utf8');
       const data = JSON.parse(raw);
-      if (Array.isArray(data.items)) this.items = data.items;
+      if (Array.isArray(data.items)) {
+        
+        this.items = data.items.map((item) => {
+          if (!item || typeof item !== 'object' || typeof item.path !== 'string') return item;
+          return { ...item, id: idFor(item.path) };
+        });
+      }
     } catch (err) {
       
       if (raw !== null) {
@@ -58,11 +78,25 @@ class Playlist {
     return this.items;
   }
 
-  async save() {
-    try {
-      await fsp.mkdir(path.dirname(this.file), { recursive: true });
-      await fsp.writeFile(this.file, JSON.stringify({ version: 1, items: this.items }, null, 2), 'utf8');
-    } catch {  }
+  
+  
+  save() {
+    this._dirty = true;
+    this._writeChain = this._writeChain
+      .catch(() => {  })
+      .then(async () => {
+        while (this._dirty) {
+          this._dirty = false;
+          try {
+            await atomicWriteFile(this.file, JSON.stringify({ version: 1, items: this.items }, null, 2));
+            this.lastSaveError = null;
+          } catch (err) {
+            this.lastSaveError = err;
+            console.error('playlist: 写入失败:', err.message);
+          }
+        }
+      });
+    return this._writeChain;
   }
 
   list() {
@@ -103,8 +137,7 @@ class Playlist {
   
   async saveTo(file) {
     const payload = this.toExport();
-    await fsp.mkdir(path.dirname(file), { recursive: true });
-    await fsp.writeFile(file, JSON.stringify(payload, null, 2), 'utf8');
+    await atomicWriteFile(file, JSON.stringify(payload, null, 2));
     return payload;
   }
 
@@ -271,4 +304,4 @@ class Playlist {
   }
 }
 
-module.exports = { Playlist, idFor, walkForAudio };
+module.exports = { Playlist, idFor, trackPathKey, walkForAudio };
